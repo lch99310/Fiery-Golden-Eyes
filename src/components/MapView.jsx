@@ -18,6 +18,7 @@ const TYPE_COLORS = {
   Unit: '#34d399',
   Townhouse: '#fbbf24',
   Land: '#a78bfa',
+  Commercial: '#f87171',
 }
 
 // Color scale: green (low) → yellow → red (high)
@@ -391,11 +392,12 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
                   <div className="popup-suburb">{p.suburb}</div>
                   <div className="popup-price">{formatPrice(p.price)}</div>
                   <div className="popup-date">{formatShortDate(p.date)}</div>
-                  {(p.bedrooms || p.area) && (
+                  {(p.bedrooms || p.area || p.zoning) && (
                     <div className="popup-details">
                       {p.bedrooms && <span>{p.bedrooms} bed</span>}
                       {p.bathrooms && <span>{p.bathrooms} bath</span>}
                       {p.area && <span>{p.area.toLocaleString()} m²</span>}
+                      {p.zoning && <span>Zone: {p.zoning}</span>}
                     </div>
                   )}
                   <div className="popup-links">

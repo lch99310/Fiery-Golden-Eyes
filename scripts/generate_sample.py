@@ -252,23 +252,20 @@ def generate_sample_data(months_back=18, seed=42):
                 floor = random.randint(1, 20)
                 address = f"{unit}/{street_no} {street}"
 
-            # Property attributes
-            bedrooms = {
-                "House": random.choices([3, 4, 5], weights=[40, 45, 15])[0],
-                "Unit": random.choices([1, 2, 3], weights=[25, 55, 20])[0],
-                "Townhouse": random.choices([2, 3, 4], weights=[25, 55, 20])[0],
-                "Land": None,
-            }[prop_type]
-
-            bathrooms = None
-            if bedrooms:
-                bathrooms = max(1, random.randint(bedrooms - 1, bedrooms))
-
+            # Land area (matches real NSW VG data — no bedroom/bathroom info)
             area = {
                 "House": random.randint(300, 1200),
                 "Unit": random.randint(55, 150),
                 "Townhouse": random.randint(150, 350),
                 "Land": random.randint(400, 2000),
+            }[prop_type]
+
+            # Zoning code (matches NSW VG format)
+            zoning = {
+                "House": random.choice(["R2", "R3", "R4"]),
+                "Unit": random.choice(["R4", "R3", "B4"]),
+                "Townhouse": random.choice(["R3", "R2"]),
+                "Land": random.choice(["R2", "R3"]),
             }[prop_type]
 
             # Jitter coordinates
@@ -288,9 +285,8 @@ def generate_sample_data(months_back=18, seed=42):
                 "price": price,
                 "date": sale_date.isoformat(),
                 "type": prop_type,
-                "bedrooms": bedrooms,
-                "bathrooms": bathrooms,
                 "area": area,
+                "zoning": zoning,
             })
 
             prop_id += 1
