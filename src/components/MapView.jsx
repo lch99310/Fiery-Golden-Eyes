@@ -435,8 +435,8 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           />
         )}
 
-        {/* Suburb cluster dots — dynamically merged at low zoom to avoid overlapping */}
-        {displayClusters.map(cluster => {
+        {/* Suburb cluster dots — only show when not zoomed into individual markers */}
+        {zoomLevel < 15 && displayClusters.map(cluster => {
           const countRadius = Math.max(5, Math.min(16, 3 + Math.sqrt(cluster.count) * 1.2))
           const zoomScale = zoomLevel <= 12 ? 1 : Math.max(0.4, 1 - (zoomLevel - 12) * 0.15)
           const radius = Math.round(countRadius * zoomScale)
