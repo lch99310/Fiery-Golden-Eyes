@@ -1,12 +1,22 @@
 name: Update Property Data
 
 on:
-  # Run daily at 11:00 AM AEST (01:00 UTC)
+  # Run every Tuesday at 10:00 AM AEST (00:00 UTC)
+  # NSW VG publishes weekly data on Mondays, so we fetch on Tuesday
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 0 * * 2'
 
   # Allow manual trigger from GitHub UI
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Fetch mode'
+        required: true
+        default: 'weekly'
+        type: choice
+        options:
+          - weekly
+          - full
 
 permissions:
   contents: write
@@ -32,12 +42,49 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
+      - name: Determine fetch mode
+        id: mode
+        run: |
+          # Use 'full' mode if properties.json doesn't exist or is sample data
+          # Otherwise use 'weekly' for incremental updates
+          MODE="${{ github.event.inputs.mode || 'auto' }}"
+          if [ "$MODE" = "auto" ]; then
+            if [ ! -f public/data/properties.json ]; then
+              echo "mode=full" >> $GITHUB_OUTPUT
+              echo "No existing data — running full fetch"
+            elif python3 -c "
+          import json, sys
+          try:
+              d = json.load(open('public/data/properties.json'))
+              if d.get('note', '').startswith('SAMPLE'):
+                  sys.exit(1)
+              if d.get('totalCount', 0) < 100:
+                  sys.exit(1)
+          except:
+              sys.exit(1)
+          " 2>/dev/null; then
+              echo "mode=weekly" >> $GITHUB_OUTPUT
+              echo "Existing real data found — running weekly update"
+            else
+              echo "mode=full" >> $GITHUB_OUTPUT
+              echo "Sample/empty data — running full fetch"
+            fi
+          else
+            echo "mode=$MODE" >> $GITHUB_OUTPUT
+            echo "Manual mode: $MODE"
+          fi
+
       - name: Fetch NSW Valuer General data
         run: |
           cd scripts
-          python fetch_data.py
+          if [ "${{ steps.mode.outputs.mode }}" = "weekly" ]; then
+            echo "Running incremental weekly update..."
+            python fetch_data.py --weekly --weeks 4
+          else
+            echo "Running full data fetch (yearly + weekly)..."
+            python fetch_data.py --weeks 8
+          fi
         env:
-          # Optional: set timeout for large downloads
           PYTHONUNBUFFERED: "1"
 
       - name: Check output files
@@ -50,6 +97,9 @@ jobs:
               d = json.load(f)
           print(f'Total: {d[\"totalCount\"]} properties')
           print(f'Updated: {d[\"lastUpdated\"]}')
+          print(f'Source: {d.get(\"dataSource\", \"N/A\")}')
+          if d.get('note'):
+              print(f'Note: {d[\"note\"]}')
           " || true
 
           echo "=== Suburbs GeoJSON ==="

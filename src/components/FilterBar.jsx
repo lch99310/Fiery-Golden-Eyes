@@ -1,13 +1,14 @@
 import React from 'react'
 import './FilterBar.css'
 
-const PROPERTY_TYPES = ['House', 'Unit', 'Townhouse', 'Land']
+const PROPERTY_TYPES = ['House', 'Unit', 'Townhouse', 'Land', 'Commercial']
 
 const TYPE_COLORS = {
   House: '#4f6ef7',
   Unit: '#34d399',
   Townhouse: '#fbbf24',
   Land: '#a78bfa',
+  Commercial: '#f87171',
 }
 
 const MONTH_OPTIONS = [

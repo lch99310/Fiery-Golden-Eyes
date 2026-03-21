@@ -8,7 +8,7 @@ import './App.css'
 export default function App() {
   const [selectedSuburb, setSelectedSuburb] = useState(null)
   const [filters, setFilters] = useState({
-    types: ['House', 'Unit', 'Townhouse', 'Land'],
+    types: ['House', 'Unit', 'Townhouse', 'Land', 'Commercial'],
     minPrice: 0,
     maxPrice: Infinity,
     months: 12,
@@ -73,9 +73,9 @@ export default function App() {
       <div className="data-disclaimer">
         <span className="disclaimer-icon">&#9432;</span>
         <span>
-          Data sourced from <a href="https://www.valuergeneral.nsw.gov.au/services/sales-enquiry.htm?execution=e1s2" target="_blank" rel="noopener noreferrer">NSW Valuer General</a>.
-          Prices, bedroom/bathroom counts, and property details are approximate and may not reflect exact records.
-          Verify via <a href="https://www.valuergeneral.nsw.gov.au/services/sales-enquiry.htm?execution=e1s2" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a> for accuracy.
+          Official data from <a href="https://www.valuergeneral.nsw.gov.au/_psi/weekly/" target="_blank" rel="noopener noreferrer">NSW Valuer General PSI</a> (weekly updates).
+          Property positions are approximate (suburb centroid). Bedroom/bathroom counts not available from VG data.
+          Verify details via <a href="https://www.valuergeneral.nsw.gov.au/services/sales-enquiry.htm?execution=e1s2" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a>.
         </span>
       </div>
 

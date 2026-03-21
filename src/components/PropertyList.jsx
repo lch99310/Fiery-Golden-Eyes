@@ -7,6 +7,7 @@ const TYPE_COLORS = {
   Unit: '#34d399',
   Townhouse: '#fbbf24',
   Land: '#a78bfa',
+  Commercial: '#f87171',
 }
 
 const TYPE_ICONS = {
@@ -14,6 +15,7 @@ const TYPE_ICONS = {
   Unit: '🏢',
   Townhouse: '🏡',
   Land: '🌱',
+  Commercial: '🏪',
 }
 
 const SORT_OPTIONS = [
@@ -89,11 +91,12 @@ export default function PropertyList({ properties, suburb }) {
 
               <div className="prop-price">{formatPrice(p.price)}</div>
 
-              {(p.bedrooms || p.area) && (
+              {(p.bedrooms || p.area || p.zoning) && (
                 <div className="prop-details">
                   {p.bedrooms && <span>🛏 {p.bedrooms} bed</span>}
                   {p.bathrooms && <span>🚿 {p.bathrooms} bath</span>}
                   {p.area && <span>📐 {p.area.toLocaleString()} m²</span>}
+                  {p.zoning && <span>📋 {p.zoning}</span>}
                 </div>
               )}
 
