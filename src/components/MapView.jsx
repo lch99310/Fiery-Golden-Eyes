@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Circle, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { formatPrice, formatShortDate } from '../utils/formatters'
 import 'leaflet/dist/leaflet.css'
@@ -244,6 +244,49 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
     return centroids
   }, [suburbs])
 
+  // Compute suburb cluster circles from property data
+  // These provide coverage for ALL suburbs with data, not just those with GeoJSON polygons
+  const suburbClusters = useMemo(() => {
+    const clusters = {}
+    filteredProperties.forEach(p => {
+      const sub = p.suburb.toUpperCase()
+      if (!clusters[sub]) clusters[sub] = { lats: [], lngs: [], prices: [], count: 0 }
+      if (p.lat && p.lng) {
+        clusters[sub].lats.push(p.lat)
+        clusters[sub].lngs.push(p.lng)
+      }
+      clusters[sub].prices.push(p.price)
+      clusters[sub].count++
+    })
+
+    // Set of suburb names that have GeoJSON polygon coverage
+    const geoJsonSuburbs = new Set()
+    if (suburbs?.features) {
+      suburbs.features.forEach(f => {
+        const name = (f.properties?.LOC_NAME || f.properties?.suburb || '').toUpperCase()
+        if (name) geoJsonSuburbs.add(name)
+      })
+    }
+
+    return Object.entries(clusters)
+      .filter(([, data]) => data.lats.length > 0)
+      .map(([name, data]) => {
+        const sorted = [...data.prices].sort((a, b) => a - b)
+        const mid = Math.floor(sorted.length / 2)
+        const med = sorted.length % 2 === 0
+          ? (sorted[mid - 1] + sorted[mid]) / 2
+          : sorted[mid]
+        return {
+          name,
+          lat: data.lats.reduce((a, b) => a + b, 0) / data.lats.length,
+          lng: data.lngs.reduce((a, b) => a + b, 0) / data.lngs.length,
+          count: data.count,
+          median: med,
+          hasPolygon: geoJsonSuburbs.has(name),
+        }
+      })
+  }, [filteredProperties, suburbs])
+
   // Price range for color scale
   const { minPrice, maxPrice } = useMemo(() => {
     const medians = Object.values(suburbStats).map(s => s.median).filter(Boolean)
@@ -259,7 +302,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
 
     return {
       fillColor: stats ? priceToColor(stats.median, minPrice, maxPrice) : '#2e3350',
-      fillOpacity: isSelected ? 0.85 : stats ? 0.6 : 0.2,
+      fillOpacity: isSelected ? 0.7 : stats ? 0.5 : 0.15,
       color: isSelected ? '#fff' : stats ? 'rgba(255,255,255,0.3)' : '#2e3350',
       weight: isSelected ? 2.5 : 1,
       pane: 'suburbPane',
@@ -362,13 +405,42 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           />
         )}
 
+        {/* Suburb cluster circles — visible at all zoom levels */}
+        {/* Uses Circle (meter-based radius) so circles scale naturally with zoom */}
+        {suburbClusters.map(cluster => {
+          const baseRadius = Math.max(250, Math.min(1500, Math.sqrt(cluster.count) * 200))
+          const isSelected = cluster.name === selectedSuburb?.toUpperCase()
+          return (
+            <Circle
+              key={`cluster-${cluster.name}`}
+              center={[cluster.lat, cluster.lng]}
+              radius={baseRadius}
+              fillColor={priceToColor(cluster.median, minPrice, maxPrice)}
+              fillOpacity={isSelected ? 0.7 : 0.5}
+              color={isSelected ? '#fff' : 'rgba(255,255,255,0.3)'}
+              weight={isSelected ? 2 : 1}
+              eventHandlers={{
+                click: () => onSuburbSelect(cluster.name),
+              }}
+            >
+              <Tooltip
+                sticky
+                className="custom-tooltip"
+                offset={[10, 0]}
+              >
+                <div className="map-tooltip">
+                  <strong>{cluster.name}</strong>
+                  <div>Median: {formatPrice(cluster.median)}</div>
+                  <div>{cluster.count} sale{cluster.count !== 1 ? 's' : ''}</div>
+                </div>
+              </Tooltip>
+            </Circle>
+          )
+        })}
+
         {/* Property markers - shown when zoomed in */}
         {showPropertyMarkers && filteredProperties.map(p => {
           if (!p.lat || !p.lng) return null
-          const suburbSlug = p.suburb.toLowerCase().replace(/ /g, '-')
-          const addressQuery = encodeURIComponent(`${p.address} ${p.suburb} NSW ${p.postcode || ''}`)
-          const domainUrl = `https://www.domain.com.au/sold-listings/?suburb=${suburbSlug}-nsw-${p.postcode || ''}&ptype=residential`
-          const realestateUrl = `https://www.realestate.com.au/sold/in-${suburbSlug},+nsw+${p.postcode || ''}/list-1?activeSort=solddate`
 
           return (
             <CircleMarker
@@ -392,22 +464,12 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
                   <div className="popup-suburb">{p.suburb}</div>
                   <div className="popup-price">{formatPrice(p.price)}</div>
                   <div className="popup-date">{formatShortDate(p.date)}</div>
-                  {(p.bedrooms || p.area || p.zoning) && (
+                  {(p.area || p.zoning) && (
                     <div className="popup-details">
-                      {p.bedrooms && <span>{p.bedrooms} bed</span>}
-                      {p.bathrooms && <span>{p.bathrooms} bath</span>}
                       {p.area && <span>{p.area.toLocaleString()} m²</span>}
                       {p.zoning && <span>Zone: {p.zoning}</span>}
                     </div>
                   )}
-                  <div className="popup-links">
-                    <a href={domainUrl} target="_blank" rel="noopener noreferrer" className="popup-link popup-link-domain">
-                      Domain.com.au ↗
-                    </a>
-                    <a href={realestateUrl} target="_blank" rel="noopener noreferrer" className="popup-link popup-link-realestate">
-                      realestate.com.au ↗
-                    </a>
-                  </div>
                 </div>
               </Popup>
             </CircleMarker>

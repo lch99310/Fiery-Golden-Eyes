@@ -323,6 +323,54 @@ FALLBACK_CENTROIDS = {
     "PETERSHAM": (-33.8950, 151.1545), "STANMORE": (-33.8960, 151.1650),
     "DULWICH HILL": (-33.9076, 151.1400), "HABERFIELD": (-33.8820, 151.1380),
     "CANTERBURY": (-33.9116, 151.1180), "ARNCLIFFE": (-33.9372, 151.1470),
+    # Additional suburbs to cover all 33 Greater Sydney LGAs
+    # Bayside
+    "BOTANY": (-33.9450, 151.1960), "EASTGARDENS": (-33.9420, 151.2250),
+    "PAGEWOOD": (-33.9360, 151.2220),
+    # Blue Mountains
+    "KATOOMBA": (-33.7150, 150.3120), "SPRINGWOOD": (-33.6990, 150.5640),
+    "LEURA": (-33.7140, 150.3350),
+    # Camden
+    "CAMDEN": (-34.0540, 150.6960), "ORAN PARK": (-34.0040, 150.7440),
+    "NARELLAN": (-34.0430, 150.7280),
+    # Canada Bay
+    "CANADA BAY": (-33.8600, 151.1000),
+    # Cumberland
+    "MERRYLANDS": (-33.8350, 150.9920), "GRANVILLE": (-33.8340, 151.0100),
+    # Fairfield
+    "FAIRFIELD": (-33.8690, 150.9560), "CABRAMATTA": (-33.8930, 150.9370),
+    # Georges River
+    "BLAKEHURST": (-33.9890, 151.1100),
+    # Hawkesbury
+    "RICHMOND": (-33.5980, 150.7510), "WINDSOR": (-33.6130, 150.8140),
+    # Hills Shire
+    "BAULKHAM HILLS": (-33.7580, 150.9880), "KELLYVILLE": (-33.7200, 150.9600),
+    # Ku-ring-gai
+    "GORDON": (-33.7570, 151.1530), "PYMBLE": (-33.7450, 151.1420),
+    "WAHROONGA": (-33.7180, 151.1170), "TURRAMURRA": (-33.7350, 151.1310),
+    # Northern Beaches
+    "MONA VALE": (-33.6770, 151.3030), "NEWPORT": (-33.6560, 151.3190),
+    "COLLAROY": (-33.7340, 151.3020), "NARRABEEN": (-33.7160, 151.2980),
+    # Penrith
+    "ST MARYS": (-33.7620, 150.7740), "EMU PLAINS": (-33.7470, 150.6590),
+    # Sutherland
+    "ENGADINE": (-34.0660, 151.0100), "MENAI": (-34.0150, 151.0150),
+    "CARINGBAH": (-34.0420, 151.1230), "SYLVANIA": (-34.0210, 151.1050),
+    # Waverley
+    "BRONTE": (-33.9030, 151.2630), "WAVERLEY": (-33.8960, 151.2530),
+    # Willoughby
+    "WILLOUGHBY": (-33.8020, 151.1980), "CASTLE COVE": (-33.7890, 151.2080),
+    # Wollondilly
+    "PICTON": (-34.1800, 150.6050), "TAHMOOR": (-34.2240, 150.5910),
+    # Ryde
+    "MACQUARIE PARK": (-33.7760, 151.1230), "NORTH RYDE": (-33.7960, 151.1280),
+    # Campbelltown
+    "INGLEBURN": (-34.0000, 150.8650), "LEUMEAH": (-34.0520, 150.8330),
+    # Canterbury-Bankstown
+    "PUNCHBOWL": (-33.9280, 151.0540), "LAKEMBA": (-33.9190, 151.0750),
+    # Liverpool
+    "CASULA": (-33.9530, 150.9040), "GREEN VALLEY": (-33.9060, 150.8730),
+    "PORT HACKING": (-34.0720, 151.1290),
 }
 
 

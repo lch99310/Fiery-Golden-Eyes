@@ -256,32 +256,6 @@
   border-bottom: 1px solid #2e3350;
 }
 
-.popup-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.popup-link {
-  font-size: 11px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: opacity 0.15s;
-}
-
-.popup-link:hover {
-  opacity: 0.8;
-  text-decoration: underline;
-}
-
-.popup-link-domain {
-  color: #4f6ef7;
-}
-
-.popup-link-realestate {
-  color: #34d399;
-}
-
 /* Zoom hint */
 .zoom-hint {
   position: absolute;

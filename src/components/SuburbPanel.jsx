@@ -55,9 +55,6 @@ export default function SuburbPanel({ suburb, properties, filters, onClose, onFi
     .map(w => w.charAt(0) + w.slice(1).toLowerCase())
     .join(' ')
 
-  // Get postcode from first property
-  const suburbPostcode = properties.length > 0 ? properties[0].postcode : ''
-
   return (
     <div className="suburb-panel">
       {/* Panel header */}
@@ -139,39 +136,6 @@ export default function SuburbPanel({ suburb, properties, filters, onClose, onFi
           </div>
         )}
 
-        {/* Property search links */}
-        <div className="search-links">
-          <a
-            href={`https://www.domain.com.au/sold-listings/?suburb=${displayName.toLowerCase().replace(/ /g, '-')}-nsw-${suburbPostcode}&ptype=residential`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="domain-link"
-          >
-            <span>🔗</span>
-            Search on Domain.com.au
-            <span className="ext-icon">↗</span>
-          </a>
-          <a
-            href={`https://www.realestate.com.au/sold/in-${displayName.toLowerCase().replace(/ /g, '-')},+nsw+${suburbPostcode}/list-1?activeSort=solddate`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="domain-link realestate-link"
-          >
-            <span>🔗</span>
-            Search on realestate.com.au
-            <span className="ext-icon">↗</span>
-          </a>
-          <a
-            href="https://www.valuergeneral.nsw.gov.au/services/sales-enquiry.htm?execution=e1s2"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="domain-link vg-link"
-          >
-            <span>🔗</span>
-            Verify on NSW Valuer General
-            <span className="ext-icon">↗</span>
-          </a>
-        </div>
       </div>
 
       {/* Tabs */}

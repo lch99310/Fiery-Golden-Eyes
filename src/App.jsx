@@ -59,7 +59,7 @@ export default function App() {
             </span>
           )}
           <a
-            href="https://www.valuergeneral.nsw.gov.au/land_values/land_value_summaries/property-sales-information"
+            href="https://www.valuergeneral.nsw.gov.au/"
             target="_blank"
             rel="noopener noreferrer"
             className="data-source-link"
@@ -68,16 +68,6 @@ export default function App() {
           </a>
         </div>
       </header>
-
-      {/* Data disclaimer */}
-      <div className="data-disclaimer">
-        <span className="disclaimer-icon">&#9432;</span>
-        <span>
-          Official data from <a href="https://www.valuergeneral.nsw.gov.au/_psi/weekly/" target="_blank" rel="noopener noreferrer">NSW Valuer General PSI</a> (weekly updates).
-          Property positions are approximate (suburb centroid). Bedroom/bathroom counts not available from VG data.
-          Verify details via <a href="https://www.valuergeneral.nsw.gov.au/services/sales-enquiry.htm?execution=e1s2" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a>.
-        </span>
-      </div>
 
       {/* Filter Bar */}
       <FilterBar filters={filters} onFilterChange={handleFilterChange} />
@@ -117,6 +107,16 @@ export default function App() {
             onFilterChange={handleFilterChange}
           />
         )}
+      </div>
+
+      {/* Data disclaimer footer */}
+      <div className="data-disclaimer">
+        <span className="disclaimer-icon">&#9432;</span>
+        <span>
+          Official data from <strong>NSW Valuer General PSI</strong> (weekly updates).
+          Property positions are approximate (suburb centroid). Bedroom/bathroom counts not available from VG data.
+          Verify details via <a href="https://valuation.property.nsw.gov.au/embed/propertySalesInformation" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a>.
+        </span>
       </div>
     </div>
   )

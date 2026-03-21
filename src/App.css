@@ -69,33 +69,37 @@
   background: rgba(79, 110, 247, 0.12);
 }
 
-/* ── Data disclaimer ── */
+/* ── Data disclaimer (footer) ── */
 .data-disclaimer {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 20px;
-  background: rgba(251, 191, 36, 0.08);
-  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
-  font-size: 11px;
-  color: #d4a843;
+  padding: 4px 20px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: #777;
   flex-shrink: 0;
   line-height: 1.4;
 }
 
 .disclaimer-icon {
-  font-size: 14px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
+.data-disclaimer strong {
+  color: #999;
+}
+
 .data-disclaimer a {
-  color: #fbbf24;
+  color: #999;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .data-disclaimer a:hover {
-  color: #fde68a;
+  color: #bbb;
 }
 
 /* ── Body ── */
