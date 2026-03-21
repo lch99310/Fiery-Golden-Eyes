@@ -4,7 +4,9 @@
 
 /** Format a price as $X,XXX,XXX or $X.XM */
 export function formatPrice(price) {
-  if (!price || isNaN(price)) return 'N/A'
+  if (price == null || price === '' || isNaN(price)) return '-'
+  price = Number(price)
+  if (price === 0) return '$0'
   if (price >= 1_000_000) {
     return `$${(price / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`
   }
@@ -16,7 +18,7 @@ export function formatPrice(price) {
 
 /** Full price with commas: $1,250,000 */
 export function formatPriceFull(price) {
-  if (!price) return 'N/A'
+  if (price == null || price === '' || isNaN(price)) return '-'
   return new Intl.NumberFormat('en-AU', {
     style: 'currency',
     currency: 'AUD',

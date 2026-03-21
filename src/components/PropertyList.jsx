@@ -72,12 +72,7 @@ export default function PropertyList({ properties, suburb }) {
       </div>
 
       <div className="prop-items">
-        {paged.map((p, i) => {
-          const suburbSlug = suburb.toLowerCase().replace(/ /g, '-')
-          const domainSoldUrl = `https://www.domain.com.au/sold-listings/?suburb=${suburbSlug}-nsw-${p.postcode || ''}&ptype=residential`
-          const realestateUrl = `https://www.realestate.com.au/sold/in-${suburbSlug},+nsw+${p.postcode || ''}/list-1?activeSort=solddate`
-
-          return (
+        {paged.map((p, i) => (
             <div key={p.id || i} className="prop-card">
               <div className="prop-card-top">
                 <div className="prop-type-badge" style={{ color: TYPE_COLORS[p.type], borderColor: TYPE_COLORS[p.type] + '44' }}>
@@ -91,37 +86,14 @@ export default function PropertyList({ properties, suburb }) {
 
               <div className="prop-price">{formatPrice(p.price)}</div>
 
-              {(p.bedrooms || p.area || p.zoning) && (
+              {(p.area || p.zoning) && (
                 <div className="prop-details">
-                  {p.bedrooms && <span>🛏 {p.bedrooms} bed</span>}
-                  {p.bathrooms && <span>🚿 {p.bathrooms} bath</span>}
                   {p.area && <span>📐 {p.area.toLocaleString()} m²</span>}
                   {p.zoning && <span>📋 {p.zoning}</span>}
                 </div>
               )}
-
-              <div className="prop-links">
-                <a
-                  href={domainSoldUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="prop-domain-link"
-                >
-                  Domain.com.au ↗
-                </a>
-                <span className="prop-link-sep">·</span>
-                <a
-                  href={realestateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="prop-domain-link prop-realestate-link"
-                >
-                  realestate.com.au ↗
-                </a>
-              </div>
             </div>
-          )
-        })}
+        ))}
       </div>
 
       {totalPages > 1 && (
