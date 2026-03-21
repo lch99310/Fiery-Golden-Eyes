@@ -107,37 +107,6 @@
   margin-bottom: 8px;
 }
 
-.prop-links {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.prop-link-sep {
-  color: var(--border);
-  font-size: 10px;
-}
-
-.prop-domain-link {
-  display: inline-block;
-  font-size: 11px;
-  color: var(--accent);
-  text-decoration: none;
-  padding: 4px 0;
-  transition: color 0.15s;
-}
-.prop-domain-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
-}
-
-.prop-realestate-link {
-  color: var(--green);
-}
-.prop-realestate-link:hover {
-  color: #6ee7b7;
-}
-
 /* Pagination */
 .prop-pagination {
   display: flex;

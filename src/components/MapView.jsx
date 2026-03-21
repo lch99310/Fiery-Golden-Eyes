@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Circle, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { formatPrice, formatShortDate } from '../utils/formatters'
 import 'leaflet/dist/leaflet.css'
@@ -405,26 +405,26 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           />
         )}
 
-        {/* Suburb cluster circles — visible at all zoom levels */}
-        {/* Uses Circle (meter-based radius) so circles scale naturally with zoom */}
-        {suburbClusters.map(cluster => {
-          const baseRadius = Math.max(250, Math.min(1500, Math.sqrt(cluster.count) * 200))
+        {/* Suburb cluster dots — only shown when zoomed out (below property marker level) */}
+        {/* Uses CircleMarker (pixel-based) so dots stay a consistent visual size */}
+        {!showPropertyMarkers && suburbClusters.map(cluster => {
+          // Pixel radius: proportional to sqrt(count), clamped to reasonable range
+          const radius = Math.max(6, Math.min(18, 4 + Math.sqrt(cluster.count) * 1.5))
           const isSelected = cluster.name === selectedSuburb?.toUpperCase()
           return (
-            <Circle
+            <CircleMarker
               key={`cluster-${cluster.name}`}
               center={[cluster.lat, cluster.lng]}
-              radius={baseRadius}
+              radius={isSelected ? radius + 2 : radius}
               fillColor={priceToColor(cluster.median, minPrice, maxPrice)}
               fillOpacity={isSelected ? 0.7 : 0.5}
-              color={isSelected ? '#fff' : 'rgba(255,255,255,0.3)'}
+              color={isSelected ? '#fff' : 'rgba(255,255,255,0.4)'}
               weight={isSelected ? 2 : 1}
               eventHandlers={{
                 click: () => onSuburbSelect(cluster.name),
               }}
             >
               <Tooltip
-                sticky
                 className="custom-tooltip"
                 offset={[10, 0]}
               >
@@ -434,7 +434,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
                   <div>{cluster.count} sale{cluster.count !== 1 ? 's' : ''}</div>
                 </div>
               </Tooltip>
-            </Circle>
+            </CircleMarker>
           )
         })}
 
