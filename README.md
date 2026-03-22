@@ -1,6 +1,6 @@
-# Sydney House Prices
+# Fiery Golden Eyes
 
-Interactive map of property sale prices across Greater Sydney, powered by official NSW Government open data.
+Fiery Golden Eyes is an web-based app that has interactive map of property sale prices across Greater Sydney, powered by official NSW Government open data.
 
 **Live:** [https://lch99310.github.io/sydney-house-prices/](https://lch99310.github.io/sydney-house-prices/)
 
