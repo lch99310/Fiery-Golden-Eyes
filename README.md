@@ -57,4 +57,4 @@ The entire codebase was written, debugged, and refined through natural language 
 ---
 
 ## Licence
-This platform utilizes Property Sales Information (PSI) provided by the NSW Valuer General under [CC BY-NC-ND 4.0]((https://creativecommons.org/licenses/by-nc-nd/4.0/)). The creator of this tool is not affiliated with the NSW Government, and the data is provided 'as-is' for informational purposes only.
+This platform utilizes Property Sales Information (PSI) provided by the NSW Valuer General under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/). The creator of this tool is not affiliated with the NSW Government, and the data is provided 'as-is' for informational purposes only.
