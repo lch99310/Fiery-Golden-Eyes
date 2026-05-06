@@ -18,7 +18,7 @@ Run:
   python fetch_data.py --weekly     # incremental weekly update only
 
 Output:
-  ../public/data/properties.json   — processed sales data (last 2 years)
+  ../public/data/properties.json   — processed sales data (last 3 years)
   ../public/data/suburbs.geojson   — suburb boundary polygons (downloaded once)
 """
 
@@ -579,7 +579,7 @@ def get_weekly_urls(weeks_back=4, from_start_of_year=False):
 def get_yearly_urls():
     """
     Return list of (label, url) for yearly data ZIPs.
-    Used for initial backfill of historical data (past 2 years).
+    Used for initial backfill of historical data (past 3 years).
     URL format: https://www.valuergeneral.nsw.gov.au/_psi/yearly/YYYY.zip
 
     Only fetches COMPLETED years — the current year has no yearly file
@@ -588,7 +588,7 @@ def get_yearly_urls():
     current_year = date.today().year
     urls = []
     # Only previous years (current year is not yet complete)
-    for year in [current_year - 2, current_year - 1]:
+    for year in [current_year - 3, current_year - 2, current_year - 1]:
         url = f"{PSI_BASE_URL}/yearly/{year}.zip"
         urls.append((f"yearly-{year}", url))
     return urls
@@ -812,8 +812,8 @@ def main():
 
     random.seed(42)  # reproducible jitter
 
-    # We keep data from the last 2 years
-    cutoff = date.today() - timedelta(days=730)
+    # We keep data from the last 3 years
+    cutoff = date.today() - timedelta(days=1095)
 
     all_properties = []
 
@@ -874,7 +874,7 @@ def main():
             seen[key] = p
     unique = list(seen.values())
 
-    # 4. Remove properties older than 2 years
+    # 4. Remove properties older than 3 years
     unique = [p for p in unique if p["date"] >= cutoff.isoformat()]
 
     # 5. Sort by date descending
