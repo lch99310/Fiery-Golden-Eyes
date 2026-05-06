@@ -17,6 +17,7 @@ const MONTH_OPTIONS = [
   { value: 6, label: '6 months' },
   { value: 12, label: '12 months' },
   { value: 24, label: '2 years' },
+  { value: 36, label: '3 years' },
 ]
 
 const PRICE_RANGES = [

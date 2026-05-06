@@ -14,7 +14,7 @@ Fiery Golden Eyes is an web-based app that has interactive map of property sale 
 - **Click any suburb** - Opens a detail panel with median, average, lowest, and highest prices broken down by property type
 - **Price trend chart** - Scatter plot with trend lines showing how prices move over time for each property type
 - **Transaction list** - Browse every recorded sale with address, price, date, land area, and zoning
-- **Filters** - Narrow by property type (House / Unit / Townhouse / Land / Commercial), price range, and time period (3-24 months)
+- **Filters** - Narrow by property type (House / Unit / Townhouse / Land / Commercial), price range, and time period (1 month – 3 years)
 - **Search** - Find any Sydney address or suburb via the search bar
 - **Auto-updated weekly** - GitHub Actions fetches new data from NSW Valuer General every Tuesday morning
 

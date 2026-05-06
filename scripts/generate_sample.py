@@ -381,7 +381,7 @@ CENTROID_DATA = {
 }
 
 
-def generate_sample_data(months_back=18, seed=42):
+def generate_sample_data(months_back=36, seed=42):
     """Generate a realistic set of sample Sydney property sales."""
     random.seed(seed)
     today = date.today()
