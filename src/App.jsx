@@ -110,12 +110,18 @@ export default function App() {
       </div>
 
       {/* Data disclaimer footer */}
-      <div className="data-disclaimer">
-        <span className="disclaimer-icon">&#9432;</span>
+      <div className={`data-disclaimer ${dataNote ? 'data-disclaimer--warning' : ''}`}>
+        <span className="disclaimer-icon">{dataNote ? '⚠️' : 'ⓘ'}</span>
         <span>
-          Official data from <strong>NSW Valuer General PSI</strong> (weekly updates).
-          Property positions are approximate (suburb centroid). Bedroom/bathroom counts not available from VG data.
-          Verify details via <a href="https://valuation.property.nsw.gov.au/embed/propertySalesInformation" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a>.
+          {dataNote ? (
+            <><strong>{dataNote}</strong> Prices and addresses shown are NOT real sales.</>
+          ) : (
+            <>
+              Official data from <strong>NSW Valuer General PSI</strong> (weekly updates).
+              Property positions are approximate (suburb centroid). Bedroom/bathroom counts not available from VG data.
+              Verify details via <a href="https://valuation.property.nsw.gov.au/embed/propertySalesInformation" target="_blank" rel="noopener noreferrer">official NSW VG sales enquiry</a>.
+            </>
+          )}
         </span>
       </div>
     </div>

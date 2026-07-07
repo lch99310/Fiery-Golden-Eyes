@@ -96,6 +96,15 @@
   color: #999;
 }
 
+.data-disclaimer--warning {
+  color: #d9a441;
+  border-top-color: rgba(217, 164, 65, 0.4);
+}
+
+.data-disclaimer--warning strong {
+  color: #e6b34f;
+}
+
 .data-disclaimer a {
   color: #999;
   text-decoration: underline;
