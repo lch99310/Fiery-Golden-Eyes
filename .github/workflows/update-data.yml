@@ -80,10 +80,10 @@ jobs:
           cd scripts
           if [ "${{ steps.mode.outputs.mode }}" = "weekly" ]; then
             echo "Running incremental weekly update..."
-            python fetch_data.py --weekly --weeks 4
+            python fetch_data.py --weekly --weeks 4 --no-sample-fallback
           else
             echo "Running full data fetch (yearly + weekly)..."
-            python fetch_data.py --weeks 8
+            python fetch_data.py --weeks 8 --no-sample-fallback
           fi
         env:
           PYTHONUNBUFFERED: "1"
@@ -128,8 +128,11 @@ jobs:
 
       # GITHUB_TOKEN pushes do NOT trigger other workflows (GitHub design).
       # Explicitly trigger the deploy workflow so GitHub Pages gets updated.
+      # Pass the exact SHA we just pushed: dispatching immediately after the
+      # push can otherwise resolve `main` to the previous commit and deploy
+      # stale data (this happened on 2026-06-30).
       - name: Trigger GitHub Pages deployment
         if: steps.commit.outputs.pushed == 'true'
-        run: gh workflow run deploy.yml --ref main
+        run: gh workflow run deploy.yml --ref main -f sha="$(git rev-parse HEAD)"
         env:
           GH_TOKEN: ${{ github.token }}

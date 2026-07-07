@@ -536,6 +536,21 @@ def get_centroid_with_jitter(suburb_name, postcode=None):
 # ── Download NSW VG PSI data ─────────────────────────────────────────────────
 PSI_BASE_URL = "https://www.valuergeneral.nsw.gov.au/_psi"
 
+# The NSW VG site (and other NSW gov hosts) returns 403 Forbidden to requests
+# that don't look like a regular browser, so send a browser-like profile.
+# Note: it may ALSO block datacenter/cloud IPs outright, in which case these
+# headers won't help from CI runners — run the script from a residential
+# connection instead.
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": "*/*",
+    "Accept-Language": "en-AU,en;q=0.9",
+    "Referer": "https://www.valuergeneral.nsw.gov.au/",
+}
+
 def get_weekly_urls(weeks_back=4, from_start_of_year=False):
     """
     Return list of (label, url) for recent weekly ZIPs.
@@ -600,7 +615,7 @@ def download_and_parse_zip(label, url, cutoff_date):
     properties = []
 
     try:
-        response = requests.get(url, timeout=180, stream=True)
+        response = requests.get(url, timeout=180, stream=True, headers=REQUEST_HEADERS)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.warning(f"Failed to download {label}: {e}")
@@ -725,7 +740,7 @@ def download_suburb_geojson():
 
     log.info(f"Downloading suburb GeoJSON from {SUBURBS_GEOJSON_URL}")
     try:
-        r = requests.get(SUBURBS_GEOJSON_URL, timeout=60)
+        r = requests.get(SUBURBS_GEOJSON_URL, timeout=60, headers=REQUEST_HEADERS)
         r.raise_for_status()
         geojson = r.json()
     except Exception as e:
@@ -808,6 +823,11 @@ def main():
         "--weeks", type=int, default=8,
         help="Number of weekly ZIPs to try downloading (default: 8)"
     )
+    parser.add_argument(
+        "--no-sample-fallback", action="store_true",
+        help="Exit with an error instead of generating sample data when "
+             "nothing could be downloaded (use in CI so failures are loud)"
+    )
     args = parser.parse_args()
 
     random.seed(42)  # reproducible jitter
@@ -835,6 +855,7 @@ def main():
         for label, url in get_weekly_urls(weeks_back=args.weeks):
             props = download_and_parse_zip(label, url, cutoff)
             all_properties.extend(props)
+        fetched_count = len(all_properties)
 
         # Merge: new data overwrites old for same ID
         existing_by_id = {p["id"]: p for p in existing}
@@ -856,6 +877,14 @@ def main():
         for label, url in get_weekly_urls(from_start_of_year=True):
             props = download_and_parse_zip(label, url, cutoff)
             all_properties.extend(props)
+        fetched_count = len(all_properties)
+
+    if fetched_count == 0 and args.no_sample_fallback:
+        log.error("No data could be downloaded from NSW VG (see warnings above).")
+        log.error("Refusing to write sample/stale data (--no-sample-fallback).")
+        log.error("If every URL returned 403, the VG site is blocking this "
+                  "network — try running from a residential connection.")
+        sys.exit(2)
 
     # ── Fallback to sample data if nothing downloaded ────────────────────
     use_sample = False

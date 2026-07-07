@@ -14,6 +14,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Exact commit SHA to build & deploy (defaults to branch tip at trigger time)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,8 +35,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # For workflow_dispatch, github.sha is resolved when the run is created.
+      # When update-data.yml dispatches this workflow right after pushing a
+      # data commit, that resolution can race the push and grab the previous
+      # commit — so the dispatcher passes the exact SHA to build instead.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
