@@ -41,8 +41,13 @@ REPO_ROOT = Path(__file__).parent.parent
 INDEX_FILE = geocode.INDEX_FILE
 PROPERTIES_FILE = REPO_ROOT / "public" / "data" / "properties.json"
 
-CKAN_API = ("https://data.gov.au/api/3/action/package_show"
-            "?id=geocoded-national-address-file-g-naf")
+# data.gov.au's CKAN instance lives under the /data/ prefix. Try the slug
+# first, then the dataset UUID, then the un-prefixed legacy path.
+CKAN_ENDPOINTS = [
+    "https://data.gov.au/data/api/3/action/package_show?id=geocoded-national-address-file-g-naf",
+    "https://data.gov.au/data/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc",
+    "https://data.gov.au/api/3/action/package_show?id=geocoded-national-address-file-g-naf",
+]
 
 
 def find_gnaf_core_url():
@@ -52,18 +57,42 @@ def find_gnaf_core_url():
         log.info(f"Using GNAF_URL override: {override}")
         return override
 
-    r = requests.get(CKAN_API, timeout=60)
-    r.raise_for_status()
-    resources = r.json()["result"]["resources"]
+    resources = None
+    for api in CKAN_ENDPOINTS:
+        try:
+            r = requests.get(api, timeout=60)
+            if r.status_code != 200:
+                log.warning(f"CKAN {api} → HTTP {r.status_code}, trying next")
+                continue
+            body = r.json()
+            if not body.get("success"):
+                log.warning(f"CKAN {api} → success=false, trying next")
+                continue
+            resources = body["result"]["resources"]
+            log.info(f"CKAN listing OK via {api} ({len(resources)} resources)")
+            break
+        except Exception as e:
+            log.warning(f"CKAN {api} failed: {e}")
+    if resources is None:
+        sys.exit("Could not reach the data.gov.au CKAN API on any known path. "
+                 "Set env GNAF_URL to a G-NAF Core ZIP URL manually (re-run the "
+                 "workflow and fill in the gnaf_url input).")
+
     candidates = [
         res for res in resources
         if "core" in res.get("name", "").lower()
         and res.get("url", "").lower().endswith(".zip")
     ]
     if not candidates:
-        sys.exit("No G-NAF Core ZIP found in the CKAN listing. "
+        names = [res.get("name") for res in resources][:20]
+        sys.exit(f"No G-NAF Core ZIP found in the CKAN listing. First resources: {names}\n"
                  "Set env GNAF_URL to the download URL manually.")
-    candidates.sort(key=lambda res: res.get("created", ""), reverse=True)
+    # Newest first; prefer GDA2020 when both datums are published
+    candidates.sort(
+        key=lambda res: (res.get("created", ""),
+                         "gda2020" in (res.get("name", "") + res.get("url", "")).lower()),
+        reverse=True,
+    )
     url = candidates[0]["url"]
     log.info(f"G-NAF Core resource: {candidates[0].get('name')} → {url}")
     return url
