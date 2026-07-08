@@ -38,6 +38,8 @@ from pathlib import Path
 
 import requests
 
+import geocode
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
@@ -665,7 +667,11 @@ def parse_dat_lines(lines, cutoff_date):
         )
 
         postcode_str = str(row.get("post_code", "") or "").strip()
-        lat, lng = get_centroid_with_jitter(locality, postcode_str)
+        # Exact position from the G-NAF index when available;
+        # otherwise approximate placement near the suburb centroid.
+        lat, lng = geocode.lookup(address, locality)
+        if lat is None:
+            lat, lng = get_centroid_with_jitter(locality, postcode_str)
         if lat is None:
             # Unknown suburb — skip (not in our centroid tables)
             continue
@@ -688,9 +694,38 @@ def parse_dat_lines(lines, cutoff_date):
             "type": prop_type,
             "area": round(area, 1) if area else None,
             "zoning": zoning if zoning else None,
+            # Temporary keys for multi-lot dealing detection; stripped in main()
+            "_dealing": str(row.get("dealing_number", "") or "").strip(),
+            "_propid": str(row.get("property_id", "") or "").strip(),
         })
 
     return properties
+
+
+def drop_bulk_dealings(properties):
+    """Remove multi-property dealings (one legal transaction covering many
+    lots, e.g. a whole apartment block). The VG file repeats the TOTAL sale
+    price on every lot, so keeping them would show a $85M "unit price" for
+    each flat in the building — not a real individual dwelling price.
+    Also strips the temporary _dealing/_propid keys."""
+    lots_per_dealing = {}
+    for p in properties:
+        if p.get("_dealing"):
+            lots_per_dealing.setdefault(p["_dealing"], set()).add(p.get("_propid"))
+
+    kept, dropped = [], 0
+    for p in properties:
+        dealing = p.pop("_dealing", "")
+        p.pop("_propid", None)
+        if dealing and len(lots_per_dealing.get(dealing, ())) > 1:
+            dropped += 1
+            continue
+        kept.append(p)
+
+    if dropped:
+        log.info(f"Dropped {dropped} records from multi-property dealings "
+                 f"(bulk sales recorded with the total price on every lot)")
+    return kept
 
 
 def parse_zip_bytes(data, label, cutoff_date):
@@ -877,6 +912,10 @@ def main():
     # 2. Load centroids from GeoJSON for better coordinate mapping
     load_centroids_from_geojson()
 
+    # 2b. Load the G-NAF geocode index if it has been built
+    #     (build_geocode_index.py / the Build Geocode Index workflow)
+    geocode.load_index()
+
     if args.local_dir:
         # ── Local mode: parse manually downloaded files + merge ──────────
         log.info(f"=== Local file processing mode: {args.local_dir} ===")
@@ -900,6 +939,7 @@ def main():
             log.info(f"  → {len(props)} valid Sydney sales from {path.name}")
             all_properties.extend(props)
         fetched_count = len(all_properties)
+        all_properties = drop_bulk_dealings(all_properties)
 
         # Merge: new data overwrites old for same ID
         existing_by_id = {p["id"]: p for p in existing}
@@ -920,6 +960,7 @@ def main():
             props = download_and_parse_zip(label, url, cutoff)
             all_properties.extend(props)
         fetched_count = len(all_properties)
+        all_properties = drop_bulk_dealings(all_properties)
 
         # Merge: new data overwrites old for same ID
         existing_by_id = {p["id"]: p for p in existing}
@@ -942,6 +983,7 @@ def main():
             props = download_and_parse_zip(label, url, cutoff)
             all_properties.extend(props)
         fetched_count = len(all_properties)
+        all_properties = drop_bulk_dealings(all_properties)
 
     if fetched_count == 0 and args.no_sample_fallback:
         log.error("No valid NSW VG sales data obtained (see warnings above).")

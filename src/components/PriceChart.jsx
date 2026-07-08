@@ -14,11 +14,12 @@ import {
 import { formatPrice, formatShortDate } from '../utils/formatters'
 import { linearRegression, percentile } from '../utils/statistics'
 
-// Trim the extreme tails per property type so a single $23M sale doesn't
-// flatten the whole chart. Only applied when a type has enough points for
-// percentiles to be meaningful; stats in the panel above stay untrimmed.
-const TRIM_PCT = 2.5 // % cut from EACH end, per type
-const TRIM_MIN_POINTS = 40
+// Hide extreme outliers per property type so a single $23M sale doesn't
+// flatten the whole chart. Uses a Tukey fence (3×IQR beyond the quartiles),
+// which adapts to each group's own spread — a fixed percentage can't handle
+// fat tails. Stats in the panel above stay untrimmed.
+const IQR_FENCE = 3
+const TRIM_MIN_POINTS = 20
 
 const TYPE_COLORS = {
   House: '#4f6ef7',
@@ -115,8 +116,11 @@ export default function PriceChart({ properties, filters }) {
         return
       }
       const values = typePoints.map(getValue)
-      const lo = percentile(values, TRIM_PCT)
-      const hi = percentile(values, 100 - TRIM_PCT)
+      const q1 = percentile(values, 25)
+      const q3 = percentile(values, 75)
+      const iqr = q3 - q1
+      const lo = q1 - IQR_FENCE * iqr
+      const hi = q3 + IQR_FENCE * iqr
       typePoints.forEach(p => {
         const v = getValue(p)
         if (v >= lo && v <= hi) kept.push(p)
@@ -288,9 +292,9 @@ export default function PriceChart({ properties, filters }) {
           <span style={{ color: '#555' }}>Trend</span>
         </div>
         {chartData.trimmedCount > 0 && (
-          <div className="chart-legend-item" title={`The most extreme ${TRIM_PCT}% at each end of every type are hidden so the trend stays readable. Panel stats above still include them.`}>
+          <div className="chart-legend-item" title="Points beyond 3×IQR of their own type's quartiles are hidden so the trend stays readable. Panel stats above still include them.">
             <span style={{ color: '#555' }}>
-              {chartData.trimmedCount} outlier{chartData.trimmedCount !== 1 ? 's' : ''} hidden (top/bottom {TRIM_PCT}% per type)
+              {chartData.trimmedCount} outlier{chartData.trimmedCount !== 1 ? 's' : ''} hidden (beyond 3×IQR per type)
             </span>
           </div>
         )}
