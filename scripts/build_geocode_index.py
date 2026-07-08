@@ -41,61 +41,65 @@ REPO_ROOT = Path(__file__).parent.parent
 INDEX_FILE = geocode.INDEX_FILE
 PROPERTIES_FILE = REPO_ROOT / "public" / "data" / "properties.json"
 
-# data.gov.au's CKAN instance lives under the /data/ prefix. Try the slug
-# first, then the dataset UUID, then the un-prefixed legacy path.
-CKAN_ENDPOINTS = [
-    "https://data.gov.au/data/api/3/action/package_show?id=geocoded-national-address-file-g-naf",
-    "https://data.gov.au/data/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc",
-    "https://data.gov.au/api/3/action/package_show?id=geocoded-national-address-file-g-naf",
+# data.gov.au's CKAN instance lives under the /data/ prefix.
+# The simplified single-table release ("G-NAF Core" / "Flat File") lives in
+# its own dataset; the multi-table full G-NAF lives in the main dataset.
+# Try the simple format first, fall back to the full one — build_index()
+# detects which format it actually received from the ZIP contents.
+CKAN_BASE = "https://data.gov.au/data/api/3/action/package_show?id="
+CKAN_DATASETS = [
+    "gnaf-flat-file",                          # G-NAF Core / flat file
+    "geocoded-national-address-file-g-naf",    # full G-NAF (GDA2020/GDA94)
 ]
 
 
-def find_gnaf_core_url():
-    """Locate the newest G-NAF Core ZIP resource on data.gov.au."""
+def _ckan_resources(dataset_id):
+    try:
+        r = requests.get(CKAN_BASE + dataset_id, timeout=60)
+        if r.status_code != 200:
+            log.warning(f"CKAN {dataset_id} → HTTP {r.status_code}")
+            return []
+        body = r.json()
+        if not body.get("success"):
+            log.warning(f"CKAN {dataset_id} → success=false")
+            return []
+        return body["result"]["resources"]
+    except Exception as e:
+        log.warning(f"CKAN {dataset_id} failed: {e}")
+        return []
+
+
+def find_gnaf_url():
+    """Locate the newest usable G-NAF ZIP (Core preferred, full as fallback)."""
     override = os.environ.get("GNAF_URL")
     if override:
         log.info(f"Using GNAF_URL override: {override}")
         return override
 
-    resources = None
-    for api in CKAN_ENDPOINTS:
-        try:
-            r = requests.get(api, timeout=60)
-            if r.status_code != 200:
-                log.warning(f"CKAN {api} → HTTP {r.status_code}, trying next")
-                continue
-            body = r.json()
-            if not body.get("success"):
-                log.warning(f"CKAN {api} → success=false, trying next")
-                continue
-            resources = body["result"]["resources"]
-            log.info(f"CKAN listing OK via {api} ({len(resources)} resources)")
-            break
-        except Exception as e:
-            log.warning(f"CKAN {api} failed: {e}")
-    if resources is None:
-        sys.exit("Could not reach the data.gov.au CKAN API on any known path. "
-                 "Set env GNAF_URL to a G-NAF Core ZIP URL manually (re-run the "
-                 "workflow and fill in the gnaf_url input).")
+    for dataset_id in CKAN_DATASETS:
+        resources = _ckan_resources(dataset_id)
+        candidates = [
+            res for res in resources
+            if res.get("url", "").lower().endswith(".zip")
+            and "previous" not in res.get("name", "").lower()
+        ]
+        if not candidates:
+            names = [res.get("name") for res in resources][:10]
+            log.warning(f"No ZIP in dataset {dataset_id}; resources: {names}")
+            continue
+        # Newest first; prefer GDA2020 when both datums are published
+        candidates.sort(
+            key=lambda res: (res.get("created", ""),
+                             "gda2020" in (res.get("name", "") + res.get("url", "")).lower()),
+            reverse=True,
+        )
+        chosen = candidates[0]
+        log.info(f"Using resource from {dataset_id}: {chosen.get('name')} → {chosen['url']}")
+        return chosen["url"]
 
-    candidates = [
-        res for res in resources
-        if "core" in res.get("name", "").lower()
-        and res.get("url", "").lower().endswith(".zip")
-    ]
-    if not candidates:
-        names = [res.get("name") for res in resources][:20]
-        sys.exit(f"No G-NAF Core ZIP found in the CKAN listing. First resources: {names}\n"
-                 "Set env GNAF_URL to the download URL manually.")
-    # Newest first; prefer GDA2020 when both datums are published
-    candidates.sort(
-        key=lambda res: (res.get("created", ""),
-                         "gda2020" in (res.get("name", "") + res.get("url", "")).lower()),
-        reverse=True,
-    )
-    url = candidates[0]["url"]
-    log.info(f"G-NAF Core resource: {candidates[0].get('name')} → {url}")
-    return url
+    sys.exit("Could not find any G-NAF ZIP via the data.gov.au CKAN API. "
+             "Re-run the workflow with the gnaf_url input set to a direct "
+             "download URL from https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf")
 
 
 def download(url, dest):
@@ -112,60 +116,137 @@ def download(url, dest):
     log.info(f"Downloaded {done / 1e9:.2f} GB")
 
 
-def build_index(zip_path):
-    """Stream the G-NAF Core PSV and build the Sydney street index."""
-    index = {}
-    rows_kept = 0
+def _add_to_index(index, street, locality, number, lat, lng):
+    if not street or not locality:
+        return 0
+    key = f"{street}|{locality}"
+    entry = index.setdefault(key, {"n": {}, "_sum": [0.0, 0.0, 0]})
+    if number and number not in entry["n"]:
+        entry["n"][number] = [lat, lng]
+    s = entry["_sum"]
+    s[0] += lat; s[1] += lng; s[2] += 1
+    return 1
 
-    with zipfile.ZipFile(zip_path) as zf:
-        psvs = [i for i in zf.infolist() if i.filename.lower().endswith(".psv")]
-        if not psvs:
-            sys.exit("No .psv file inside the G-NAF ZIP")
-        member = max(psvs, key=lambda i: i.file_size)
-        log.info(f"Parsing {member.filename} ({member.file_size / 1e9:.2f} GB)")
 
-        with zf.open(member) as raw:
-            reader = csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8"), delimiter="|")
-            required = {"STATE", "POSTCODE", "LATITUDE", "LONGITUDE",
-                        "NUMBER_FIRST", "STREET_NAME", "STREET_TYPE", "LOCALITY_NAME"}
-            missing = required - set(reader.fieldnames or [])
-            if missing:
-                sys.exit(f"G-NAF Core header is missing expected columns {sorted(missing)}.\n"
-                         f"Actual header: {reader.fieldnames}\n"
-                         f"The format may have changed — update build_geocode_index.py.")
-            for row in reader:
-                if row.get("STATE") != "NSW":
-                    continue
-                try:
-                    if int(row.get("POSTCODE") or 0) not in SYDNEY_POSTCODES:
-                        continue
-                    lat = round(float(row["LATITUDE"]), 6)
-                    lng = round(float(row["LONGITUDE"]), 6)
-                except (ValueError, TypeError, KeyError):
-                    continue
-
-                street = geocode.canon_street(
-                    f"{row.get('STREET_NAME', '')} {row.get('STREET_TYPE', '')}".strip()
-                )
-                locality = (row.get("LOCALITY_NAME") or "").upper().strip()
-                if not street or not locality:
-                    continue
-
-                key = f"{street}|{locality}"
-                entry = index.setdefault(key, {"n": {}, "_sum": [0.0, 0.0, 0]})
-                number = (row.get("NUMBER_FIRST") or "").strip()
-                if number and number not in entry["n"]:
-                    entry["n"][number] = [lat, lng]
-                s = entry["_sum"]
-                s[0] += lat; s[1] += lng; s[2] += 1
-                rows_kept += 1
-
+def _finalize_index(index, rows_kept):
     for entry in index.values():
         s = entry.pop("_sum")
         entry["c"] = [round(s[0] / s[2], 6), round(s[1] / s[2], 6)]
-
     log.info(f"Index: {len(index)} streets from {rows_kept} Sydney address points")
     return index
+
+
+def _open_member(zf, member):
+    return csv.DictReader(io.TextIOWrapper(zf.open(member), encoding="utf-8"),
+                          delimiter="|")
+
+
+def _parse_core(zf, member):
+    """G-NAF Core / flat file: one row per address with lat/lng inline."""
+    log.info(f"Parsing Core format: {member.filename} ({member.file_size / 1e9:.2f} GB)")
+    index, rows_kept = {}, 0
+    reader = _open_member(zf, member)
+    required = {"STATE", "POSTCODE", "LATITUDE", "LONGITUDE",
+                "NUMBER_FIRST", "STREET_NAME", "STREET_TYPE", "LOCALITY_NAME"}
+    missing = required - set(reader.fieldnames or [])
+    if missing:
+        sys.exit(f"Core PSV header missing {sorted(missing)}.\nActual: {reader.fieldnames}")
+    for row in reader:
+        if row.get("STATE") != "NSW":
+            continue
+        try:
+            if int(row.get("POSTCODE") or 0) not in SYDNEY_POSTCODES:
+                continue
+            lat = round(float(row["LATITUDE"]), 6)
+            lng = round(float(row["LONGITUDE"]), 6)
+        except (ValueError, TypeError):
+            continue
+        street = geocode.canon_street(
+            f"{row.get('STREET_NAME', '')} {row.get('STREET_TYPE', '')}".strip())
+        locality = (row.get("LOCALITY_NAME") or "").upper().strip()
+        number = (row.get("NUMBER_FIRST") or "").strip()
+        rows_kept += _add_to_index(index, street, locality, number, lat, lng)
+    return _finalize_index(index, rows_kept)
+
+
+def _parse_full(zf, members):
+    """Full multi-table G-NAF: join NSW locality, street_locality,
+    address_detail and address_default_geocode."""
+    log.info("Parsing full G-NAF format (NSW table join)")
+
+    localities = {}
+    for row in _open_member(zf, members["NSW_LOCALITY_psv.psv"]):
+        if not (row.get("DATE_RETIRED") or "").strip():
+            localities[row["LOCALITY_PID"]] = (row.get("LOCALITY_NAME") or "").upper().strip()
+    log.info(f"  localities: {len(localities)}")
+
+    streets = {}
+    for row in _open_member(zf, members["NSW_STREET_LOCALITY_psv.psv"]):
+        if (row.get("DATE_RETIRED") or "").strip():
+            continue
+        name = geocode.canon_street(
+            f"{row.get('STREET_NAME', '')} {row.get('STREET_TYPE_CODE', '')}".strip())
+        streets[row["STREET_LOCALITY_PID"]] = (name, row.get("LOCALITY_PID"))
+    log.info(f"  street-localities: {len(streets)}")
+
+    # Sydney addresses: pid → (house number, street_locality_pid)
+    addresses = {}
+    for row in _open_member(zf, members["NSW_ADDRESS_DETAIL_psv.psv"]):
+        if (row.get("DATE_RETIRED") or "").strip():
+            continue
+        try:
+            if int(row.get("POSTCODE") or 0) not in SYDNEY_POSTCODES:
+                continue
+        except ValueError:
+            continue
+        slpid = row.get("STREET_LOCALITY_PID")
+        if slpid not in streets:
+            continue
+        addresses[row["ADDRESS_DETAIL_PID"]] = (
+            (row.get("NUMBER_FIRST") or "").strip(), slpid)
+    log.info(f"  Sydney addresses: {len(addresses)}")
+
+    index, rows_kept = {}, 0
+    for row in _open_member(zf, members["NSW_ADDRESS_DEFAULT_GEOCODE_psv.psv"]):
+        addr = addresses.get(row.get("ADDRESS_DETAIL_PID"))
+        if addr is None:
+            continue
+        try:
+            lat = round(float(row["LATITUDE"]), 6)
+            lng = round(float(row["LONGITUDE"]), 6)
+        except (ValueError, TypeError, KeyError):
+            continue
+        number, slpid = addr
+        street, locality_pid = streets[slpid]
+        locality = localities.get(locality_pid, "")
+        rows_kept += _add_to_index(index, street, locality, number, lat, lng)
+    return _finalize_index(index, rows_kept)
+
+
+FULL_GNAF_TABLES = [
+    "NSW_LOCALITY_psv.psv",
+    "NSW_STREET_LOCALITY_psv.psv",
+    "NSW_ADDRESS_DETAIL_psv.psv",
+    "NSW_ADDRESS_DEFAULT_GEOCODE_psv.psv",
+]
+
+
+def build_index(zip_path):
+    """Build the Sydney street index; auto-detects Core vs full G-NAF."""
+    with zipfile.ZipFile(zip_path) as zf:
+        members = {}
+        for info in zf.infolist():
+            base = os.path.basename(info.filename)
+            if base in FULL_GNAF_TABLES:
+                members[base] = info
+
+        if len(members) == len(FULL_GNAF_TABLES):
+            return _parse_full(zf, members)
+
+        psvs = [i for i in zf.infolist() if i.filename.lower().endswith(".psv")]
+        if not psvs:
+            sys.exit("No .psv files inside the downloaded ZIP — not a G-NAF archive?")
+        return _parse_core(zf, max(psvs, key=lambda i: i.file_size))
 
 
 def regeocode_properties():
