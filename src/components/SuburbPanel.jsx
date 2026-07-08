@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import PriceChart from './PriceChart'
 import PropertyList from './PropertyList'
 import { formatPrice } from '../utils/formatters'
-import { median, average } from '../utils/statistics'
+import { median, trimmedMean } from '../utils/statistics'
 import './SuburbPanel.css'
 
 const TABS = ['Chart', 'Properties']
@@ -31,14 +31,14 @@ export default function SuburbPanel({ suburb, street, properties, filters, onClo
     return {
       count: properties.length,
       median: median(prices),
-      average: average(prices),
+      average: trimmedMean(prices),
       min: Math.min(...prices),
       max: Math.max(...prices),
       byType: Object.entries(byType).map(([type, ps]) => ({
         type,
         count: ps.length,
         median: median(ps),
-        average: average(ps),
+        average: trimmedMean(ps),
         min: Math.min(...ps),
         max: Math.max(...ps),
       })).sort((a, b) => b.count - a.count),
@@ -91,8 +91,8 @@ export default function SuburbPanel({ suburb, street, properties, filters, onClo
                 <span className="stat-label">Median</span>
                 <span className="stat-value accent">{formatPrice(stats.median)}</span>
               </div>
-              <div className="stat-card">
-                <span className="stat-label">Average</span>
+              <div className="stat-card" title="Trimmed mean — the top and bottom 5% of sales are excluded so a few extremes don't skew it. Median, lowest and highest use all sales.">
+                <span className="stat-label">Avg*</span>
                 <span className="stat-value">{formatPrice(stats.average)}</span>
               </div>
               <div className="stat-card">
@@ -129,8 +129,8 @@ export default function SuburbPanel({ suburb, street, properties, filters, onClo
                         <span className="type-detail-label">Median</span>
                         <span className="type-detail-value accent">{formatPrice(med)}</span>
                       </div>
-                      <div className="type-detail-item">
-                        <span className="type-detail-label">Average</span>
+                      <div className="type-detail-item" title="Trimmed mean (top/bottom 5% excluded)">
+                        <span className="type-detail-label">Avg*</span>
                         <span className="type-detail-value">{formatPrice(avg)}</span>
                       </div>
                       <div className="type-detail-item">

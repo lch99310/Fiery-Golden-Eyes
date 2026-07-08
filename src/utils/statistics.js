@@ -18,6 +18,17 @@ export function average(arr) {
   return arr.reduce((sum, v) => sum + v, 0) / arr.length
 }
 
+/** Trimmed mean: drop the top and bottom `frac` of values before averaging,
+ * so a handful of extreme sales don't drag the average. Falls back to the
+ * plain mean when the sample is too small to trim meaningfully. */
+export function trimmedMean(arr, frac = 0.05) {
+  if (arr.length < 10) return average(arr)
+  const sorted = [...arr].sort((a, b) => a - b)
+  const cut = Math.floor(sorted.length * frac)
+  const kept = sorted.slice(cut, sorted.length - cut)
+  return average(kept.length ? kept : sorted)
+}
+
 /** Simple Ordinary Least Squares linear regression
  * Returns { slope, intercept, r2 }
  */
