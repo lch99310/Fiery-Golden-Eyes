@@ -490,11 +490,19 @@ def _point_in_polygon(lng, lat, polygon):
     return inside
 
 
+def _disc_jitter(radius):
+    """Uniform random offset within a disc — box jitter reads as square
+    blobs on the map once a suburb has hundreds of points."""
+    r = radius * math.sqrt(random.random())
+    theta = random.uniform(0, 2 * math.pi)
+    return r * math.sin(theta), r * math.cos(theta)  # (dlat, dlng)
+
+
 def get_centroid_with_jitter(suburb_name, postcode=None):
     """Get lat/lng for suburb with realistic spread within suburb boundary.
 
     Uses polygon boundary when available to place points within the actual
-    suburb area. Falls back to moderate jitter or postcode-area centroid.
+    suburb area. Falls back to circular jitter or postcode-area centroid.
     """
     sub = suburb_name.upper().strip()
     centroid = SUBURB_CENTROIDS.get(sub) or FALLBACK_CENTROIDS.get(sub)
@@ -516,21 +524,19 @@ def get_centroid_with_jitter(suburb_name, postcode=None):
         plats = [p[1] for p in polygon]
         min_lng, max_lng = min(plngs), max(plngs)
         min_lat, max_lat = min(plats), max(plats)
-        for _ in range(30):
+        for _ in range(80):
             rlng = random.uniform(min_lng, max_lng)
             rlat = random.uniform(min_lat, max_lat)
             if _point_in_polygon(rlng, rlat, polygon):
                 return round(rlat, 6), round(rlng, 6)
-        # Fallback: reduced bbox jitter
-        range_lat = (max_lat - min_lat) * 0.35
-        range_lng = (max_lng - min_lng) * 0.35
-        return (round(lat + random.uniform(-range_lat, range_lat), 6),
-                round(lng + random.uniform(-range_lng, range_lng), 6))
+        # Fallback: circular jitter scaled to the suburb's extent
+        radius = 0.35 * min(max_lat - min_lat, max_lng - min_lng) / 2
+        dlat, dlng = _disc_jitter(max(radius, 0.001))
+        return round(lat + dlat, 6), round(lng + dlng, 6)
 
-    # No polygon: moderate jitter (~330m)
-    jitter_lat = random.uniform(-0.003, 0.003)
-    jitter_lng = random.uniform(-0.003, 0.003)
-    return round(lat + jitter_lat, 6), round(lng + jitter_lng, 6)
+    # No polygon: moderate circular jitter (~330m)
+    dlat, dlng = _disc_jitter(0.003)
+    return round(lat + dlat, 6), round(lng + dlng, 6)
 
 
 # ── Download NSW VG PSI data ─────────────────────────────────────────────────

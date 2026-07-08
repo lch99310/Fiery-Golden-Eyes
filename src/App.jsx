@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import MapView from './components/MapView'
+import MapView, { streetOf } from './components/MapView'
 import FilterBar from './components/FilterBar'
 import SuburbPanel from './components/SuburbPanel'
 import { usePropertyData } from './hooks/usePropertyData'
@@ -7,6 +7,7 @@ import './App.css'
 
 export default function App() {
   const [selectedSuburb, setSelectedSuburb] = useState(null)
+  const [selectedStreet, setSelectedStreet] = useState(null)
   const [filters, setFilters] = useState({
     types: ['House', 'Unit', 'Townhouse', 'Land', 'Commercial'],
     minPrice: 0,
@@ -16,8 +17,9 @@ export default function App() {
 
   const { properties, suburbs, lastUpdated, dataNote, loading, error } = usePropertyData()
 
-  const handleSuburbSelect = useCallback((suburb) => {
+  const handleSuburbSelect = useCallback((suburb, street = null) => {
     setSelectedSuburb(suburb)
+    setSelectedStreet(street)
   }, [])
 
   const handleFilterChange = useCallback((newFilters) => {
@@ -26,6 +28,7 @@ export default function App() {
 
   const handleClosePanel = useCallback(() => {
     setSelectedSuburb(null)
+    setSelectedStreet(null)
   }, [])
 
   // Filter properties for selected suburb
@@ -38,12 +41,13 @@ export default function App() {
 
     return properties.filter(p => {
       const matchSuburb = p.suburb.toUpperCase() === target
+      const matchStreet = !selectedStreet || streetOf(p.address) === selectedStreet
       const matchType = filters.types.includes(p.type)
       const matchPrice = p.price >= filters.minPrice && p.price <= filters.maxPrice
       const matchDate = p._ts >= cutoffTs
-      return matchSuburb && matchType && matchPrice && matchDate
+      return matchSuburb && matchStreet && matchType && matchPrice && matchDate
     })
-  }, [selectedSuburb, properties, filters])
+  }, [selectedSuburb, selectedStreet, properties, filters])
 
   return (
     <div className="app">
@@ -110,9 +114,11 @@ export default function App() {
         {selectedSuburb && (
           <SuburbPanel
             suburb={selectedSuburb}
+            street={selectedStreet}
             properties={suburbProperties}
             filters={filters}
             onClose={handleClosePanel}
+            onClearStreet={() => setSelectedStreet(null)}
             onFilterChange={handleFilterChange}
           />
         )}

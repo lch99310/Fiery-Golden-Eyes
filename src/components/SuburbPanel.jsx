@@ -15,7 +15,7 @@ const TYPE_COLORS = {
   Commercial: '#f87171',
 }
 
-export default function SuburbPanel({ suburb, properties, filters, onClose, onFilterChange }) {
+export default function SuburbPanel({ suburb, street, properties, filters, onClose, onClearStreet, onFilterChange }) {
   const [activeTab, setActiveTab] = useState('Chart')
   const [expandedType, setExpandedType] = useState(null)
 
@@ -49,11 +49,12 @@ export default function SuburbPanel({ suburb, properties, filters, onClose, onFi
     setExpandedType(prev => prev === type ? null : type)
   }
 
-  // Title-case the suburb name
-  const displayName = suburb
+  // Title-case a name like "DULWICH HILL" → "Dulwich Hill"
+  const titleCase = (s) => s
     .split(' ')
     .map(w => w.charAt(0) + w.slice(1).toLowerCase())
     .join(' ')
+  const displayName = street ? titleCase(street) : titleCase(suburb)
 
   return (
     <div className="suburb-panel">
@@ -63,6 +64,18 @@ export default function SuburbPanel({ suburb, properties, filters, onClose, onFi
           <div>
             <h2 className="panel-suburb-name">{displayName}</h2>
             <p className="panel-subtitle">
+              {street && (
+                <>
+                  <button
+                    className="panel-suburb-link"
+                    onClick={onClearStreet}
+                    title="Show stats for the whole suburb"
+                  >
+                    {titleCase(suburb)}
+                  </button>
+                  {' · '}
+                </>
+              )}
               {filters.months} month{filters.months !== 1 ? 's' : ''} · {properties.length} transaction{properties.length !== 1 ? 's' : ''}
             </p>
           </div>

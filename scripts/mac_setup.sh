@@ -37,6 +37,20 @@ else
 fi
 
 echo "→ 安裝每週排程（每週二早上 10:00，電腦有開機時執行）…"
+
+# A root-owned plist or LaunchAgents dir (usually from a previous sudo run)
+# makes the write below fail with a cryptic "Permission denied".
+if { [ -e "$PLIST" ] && [ ! -w "$PLIST" ]; } || [ ! -w "$HOME/Library/LaunchAgents" ]; then
+  echo
+  echo "⚠️  排程檔或資料夾的權限不對（通常是之前用 sudo 執行過造成的）。"
+  echo "   請先執行這兩行修復，然後重新執行本設定指令："
+  echo
+  echo "   sudo rm -f \"$PLIST\""
+  echo "   sudo chown \"\$USER\" \"\$HOME/Library/LaunchAgents\""
+  echo
+  exit 1
+fi
+
 cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
