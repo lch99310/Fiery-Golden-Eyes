@@ -609,112 +609,127 @@ def get_yearly_urls():
     return urls
 
 
+def parse_dat_lines(lines, cutoff_date):
+    """Parse B-records from DAT file lines into property dicts."""
+    properties = []
+    for line in lines:
+        row = parse_vg_line(line)
+        if not row:
+            continue
+        if not is_valid_sale(row):
+            continue
+
+        # contract_date = date of exchange (成交日期), when buyer & seller sign.
+        # settlement_date = later administrative transfer date (usually +42 days).
+        # We use contract_date as it reflects actual market timing.
+        contract_date = parse_date(row.get("contract_date"))
+        if not contract_date or contract_date < cutoff_date:
+            continue
+
+        try:
+            price = int(row.get("purchase_price", 0) or 0)
+        except ValueError:
+            continue
+
+        locality = str(row.get("locality", "")).strip().upper()
+
+        # Build address
+        unit = str(row.get("unit_number", "") or "").strip()
+        street_no = str(row.get("street_number", "") or "").strip()
+        street_name = str(row.get("street_name", "") or "").strip()
+        address_parts = filter(None, [
+            f"{unit}/{street_no}" if unit else street_no,
+            street_name,
+        ])
+        address = " ".join(address_parts).title()
+        if not address:
+            address = "Unknown Address"
+
+        try:
+            area = float(row.get("area", 0) or 0)
+        except ValueError:
+            area = 0
+
+        prop_type = classify_property_type(
+            row.get("strata_lot_number"),
+            row.get("zoning"),
+            row.get("primary_purpose"),
+            row.get("nature_of_property"),
+            area,
+        )
+
+        postcode_str = str(row.get("post_code", "") or "").strip()
+        lat, lng = get_centroid_with_jitter(locality, postcode_str)
+        if lat is None:
+            # Unknown suburb — skip (not in our centroid tables)
+            continue
+
+        # Unique ID from dealing number + property ID
+        uid_src = f"{row.get('dealing_number', '')}-{row.get('property_id', '')}-{row.get('sale_counter', '')}"
+        uid = hashlib.md5(uid_src.encode()).hexdigest()[:12]
+
+        zoning = str(row.get("zoning", "") or "").strip()
+
+        properties.append({
+            "id": uid,
+            "address": address,
+            "suburb": locality,
+            "postcode": str(row.get("post_code", "")).strip(),
+            "lat": lat,
+            "lng": lng,
+            "price": price,
+            "date": contract_date.isoformat(),
+            "type": prop_type,
+            "area": round(area, 1) if area else None,
+            "zoning": zoning if zoning else None,
+        })
+
+    return properties
+
+
+def parse_zip_bytes(data, label, cutoff_date):
+    """Parse all DAT files inside a PSI ZIP (recursing into nested ZIPs —
+    yearly archives contain one nested ZIP per week)."""
+    properties = []
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            for name in zf.namelist():
+                lower = name.lower()
+                if lower.endswith(".dat"):
+                    with zf.open(name) as f:
+                        lines = f.read().decode("latin-1", errors="replace").splitlines()
+                    props = parse_dat_lines(lines, cutoff_date)
+                    if props:
+                        log.info(f"  {name}: {len(props)} valid Sydney sales")
+                    properties.extend(props)
+                elif lower.endswith(".zip"):
+                    with zf.open(name) as f:
+                        properties.extend(
+                            parse_zip_bytes(f.read(), f"{label}/{name}", cutoff_date)
+                        )
+    except zipfile.BadZipFile as e:
+        log.warning(f"Bad ZIP for {label}: {e}")
+    return properties
+
+
 def download_and_parse_zip(label, url, cutoff_date):
     """Download a ZIP, extract and parse DAT files. Returns list of sale dicts."""
     log.info(f"Downloading {label} from {url}")
-    properties = []
 
     try:
         response = requests.get(url, timeout=180, stream=True, headers=REQUEST_HEADERS)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         log.warning(f"Failed to download {label}: {e}")
-        return properties
+        return []
 
     size_mb = len(response.content) / 1024 / 1024
     log.info(f"Downloaded {size_mb:.1f} MB for {label}")
 
-    try:
-        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
-            dat_files = [n for n in zf.namelist() if n.lower().endswith(".dat")]
-            log.info(f"Found {len(dat_files)} DAT files in {label}")
-
-            for dat_name in dat_files:
-                with zf.open(dat_name) as f:
-                    lines = f.read().decode("latin-1", errors="replace").splitlines()
-
-                parsed = 0
-                for line in lines:
-                    row = parse_vg_line(line)
-                    if not row:
-                        continue
-                    if not is_valid_sale(row):
-                        continue
-
-                    # contract_date = date of exchange (成交日期), when buyer & seller sign.
-                    # settlement_date = later administrative transfer date (usually +42 days).
-                    # We use contract_date as it reflects actual market timing.
-                    contract_date = parse_date(row.get("contract_date"))
-                    if not contract_date or contract_date < cutoff_date:
-                        continue
-
-                    try:
-                        price = int(row.get("purchase_price", 0) or 0)
-                    except ValueError:
-                        continue
-
-                    locality = str(row.get("locality", "")).strip().upper()
-
-                    # Build address
-                    unit = str(row.get("unit_number", "") or "").strip()
-                    street_no = str(row.get("street_number", "") or "").strip()
-                    street_name = str(row.get("street_name", "") or "").strip()
-                    address_parts = filter(None, [
-                        f"{unit}/{street_no}" if unit else street_no,
-                        street_name,
-                    ])
-                    address = " ".join(address_parts).title()
-                    if not address:
-                        address = "Unknown Address"
-
-                    try:
-                        area = float(row.get("area", 0) or 0)
-                    except ValueError:
-                        area = 0
-
-                    prop_type = classify_property_type(
-                        row.get("strata_lot_number"),
-                        row.get("zoning"),
-                        row.get("primary_purpose"),
-                        row.get("nature_of_property"),
-                        area,
-                    )
-
-                    postcode_str = str(row.get("post_code", "") or "").strip()
-                    lat, lng = get_centroid_with_jitter(locality, postcode_str)
-                    if lat is None:
-                        # Unknown suburb — skip (not in our centroid tables)
-                        continue
-
-                    # Unique ID from dealing number + property ID
-                    uid_src = f"{row.get('dealing_number', '')}-{row.get('property_id', '')}-{row.get('sale_counter', '')}"
-                    uid = hashlib.md5(uid_src.encode()).hexdigest()[:12]
-
-                    zoning = str(row.get("zoning", "") or "").strip()
-
-                    properties.append({
-                        "id": uid,
-                        "address": address,
-                        "suburb": locality,
-                        "postcode": str(row.get("post_code", "")).strip(),
-                        "lat": lat,
-                        "lng": lng,
-                        "price": price,
-                        "date": contract_date.isoformat(),
-                        "type": prop_type,
-                        "area": round(area, 1) if area else None,
-                        "zoning": zoning if zoning else None,
-                    })
-                    parsed += 1
-
-                if parsed:
-                    log.info(f"  {dat_name}: {parsed} valid Sydney sales")
-
-    except zipfile.BadZipFile as e:
-        log.warning(f"Bad ZIP for {label}: {e}")
-
+    properties = parse_zip_bytes(response.content, label, cutoff_date)
     log.info(f"  → {len(properties)} total valid Sydney sales from {label}")
     return properties
+
 
 
 # ── Download suburb GeoJSON ──────────────────────────────────────────────────
@@ -807,6 +822,10 @@ def load_existing_properties():
     try:
         with open(PROPERTIES_FILE) as f:
             data = json.load(f)
+        # Never merge real data on top of generated sample data
+        if str(data.get("note", "")).startswith("SAMPLE"):
+            log.info("Existing data is SAMPLE — discarding it instead of merging")
+            return []
         return data.get("properties", [])
     except (json.JSONDecodeError, KeyError):
         return []
@@ -828,6 +847,12 @@ def main():
         help="Exit with an error instead of generating sample data when "
              "nothing could be downloaded (use in CI so failures are loud)"
     )
+    parser.add_argument(
+        "--local-dir", type=Path, default=None,
+        help="Parse PSI .zip/.dat files from this directory instead of "
+             "downloading (for manually downloaded VG data), merging them "
+             "into the existing dataset"
+    )
     args = parser.parse_args()
 
     random.seed(42)  # reproducible jitter
@@ -843,7 +868,37 @@ def main():
     # 2. Load centroids from GeoJSON for better coordinate mapping
     load_centroids_from_geojson()
 
-    if args.weekly:
+    if args.local_dir:
+        # ── Local mode: parse manually downloaded files + merge ──────────
+        log.info(f"=== Local file processing mode: {args.local_dir} ===")
+
+        existing = load_existing_properties()
+        log.info(f"Loaded {len(existing)} existing properties")
+
+        local_files = sorted(
+            p for p in args.local_dir.iterdir()
+            if p.suffix.lower() in (".zip", ".dat")
+        )
+        if not local_files:
+            log.warning(f"No .zip/.dat files found in {args.local_dir}")
+        for path in local_files:
+            log.info(f"Parsing {path.name}")
+            if path.suffix.lower() == ".zip":
+                props = parse_zip_bytes(path.read_bytes(), path.name, cutoff)
+            else:
+                lines = path.read_text(encoding="latin-1", errors="replace").splitlines()
+                props = parse_dat_lines(lines, cutoff)
+            log.info(f"  → {len(props)} valid Sydney sales from {path.name}")
+            all_properties.extend(props)
+        fetched_count = len(all_properties)
+
+        # Merge: new data overwrites old for same ID
+        existing_by_id = {p["id"]: p for p in existing}
+        for p in all_properties:
+            existing_by_id[p["id"]] = p
+        all_properties = list(existing_by_id.values())
+
+    elif args.weekly:
         # ── Incremental mode: weekly data + merge with existing ──────────
         log.info("=== Incremental weekly update mode ===")
 
@@ -880,10 +935,14 @@ def main():
         fetched_count = len(all_properties)
 
     if fetched_count == 0 and args.no_sample_fallback:
-        log.error("No data could be downloaded from NSW VG (see warnings above).")
+        log.error("No valid NSW VG sales data obtained (see warnings above).")
         log.error("Refusing to write sample/stale data (--no-sample-fallback).")
-        log.error("If every URL returned 403, the VG site is blocking this "
-                  "network — try running from a residential connection.")
+        if args.local_dir:
+            log.error("Check that the uploaded files are PSI .zip/.dat files "
+                      "containing Greater Sydney B-records.")
+        else:
+            log.error("If every URL returned 403, the VG site is blocking this "
+                      "network — try running from a residential connection.")
         sys.exit(2)
 
     # ── Fallback to sample data if nothing downloaded ────────────────────
