@@ -24,10 +24,13 @@ export function usePropertyData() {
       setError(null)
 
       try {
-        // Load property sales JSON
+        // Load property sales JSON.
+        // cache: 'no-cache' forces revalidation with the server (ETag/304),
+        // so a freshly deployed dataset shows up immediately instead of the
+        // browser serving GitHub Pages' 10-minute-cached copy.
         const [propsRes, suburbsRes] = await Promise.all([
-          fetch(`${BASE}data/properties.json`),
-          fetch(`${BASE}data/suburbs.geojson`),
+          fetch(`${BASE}data/properties.json`, { cache: 'no-cache' }),
+          fetch(`${BASE}data/suburbs.geojson`, { cache: 'no-cache' }),
         ])
 
         if (!propsRes.ok) throw new Error(`Failed to load properties: ${propsRes.status}`)
