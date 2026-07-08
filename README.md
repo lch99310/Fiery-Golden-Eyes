@@ -53,6 +53,20 @@ Yearly ZIPs (for historical backfill) work the same way. If an uploaded file
 contains no valid Sydney sales, the workflow fails loudly and nothing is
 published — the site only ever shows real parsed VG data.
 
+#### Optional: fully automatic weekly updates (macOS)
+
+`scripts/auto_upload.py` performs steps 1–2 for you from your own computer
+(home IPs are not blocked by the VG site). One-time setup:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lch99310/Fiery-Golden-Eyes/main/scripts/mac_setup.sh | bash
+```
+
+It asks for a fine-grained GitHub token (Contents: read/write on this repo
+only), schedules the updater for every Tuesday 10:00 via launchd, and
+catches up missed weeks automatically if the computer was off. Logs go to
+`~/Library/Logs/fiery-golden-eyes.log`.
+
 ### Important Notes
 
 - Property positions on the map are **approximate** (suburb centroid with small offset) -- not exact street addresses
