@@ -29,9 +29,19 @@ REPO = "lch99310/Fiery-Golden-Eyes"
 VG_WEEKLY_URL = "https://www.valuergeneral.nsw.gov.au/_psi/weekly/{d}.zip"
 CATCH_UP_WEEKS = 6
 
-CONF_DIR = Path.home() / ".config" / "fiery-golden-eyes"
+# Primary config dir; the legacy ~/.config path is still read for tokens
+# saved by older setups.
+CONF_DIR = Path.home() / ".fiery-golden-eyes"
+LEGACY_CONF_DIR = Path.home() / ".config" / "fiery-golden-eyes"
 TOKEN_FILE = CONF_DIR / "token"
 STATE_FILE = CONF_DIR / "uploaded_weeks.txt"
+
+
+def read_token():
+    for path in (TOKEN_FILE, LEGACY_CONF_DIR / "token"):
+        if path.exists() and path.read_text().strip():
+            return path.read_text().strip()
+    return None
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -119,11 +129,14 @@ def upload_to_inbox(token, dstr, blob):
 
 
 def main():
-    if not TOKEN_FILE.exists():
+    token = read_token()
+    if not token:
         sys.exit(f"No GitHub token found at {TOKEN_FILE} — run mac_setup.sh first.")
-    token = TOKEN_FILE.read_text().strip()
 
-    done = set(STATE_FILE.read_text().split()) if STATE_FILE.exists() else set()
+    CONF_DIR.mkdir(parents=True, exist_ok=True)
+    state_file = STATE_FILE if STATE_FILE.exists() else (
+        LEGACY_CONF_DIR / "uploaded_weeks.txt")
+    done = set(state_file.read_text().split()) if state_file.exists() else set()
     uploaded = 0
 
     for dstr in recent_mondays(CATCH_UP_WEEKS):

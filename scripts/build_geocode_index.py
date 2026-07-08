@@ -272,7 +272,7 @@ def regeocode_properties():
 
 
 def main():
-    url = find_gnaf_core_url()
+    url = find_gnaf_url()
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = Path(tmp) / "gnaf-core.zip"
         download(url, zip_path)
