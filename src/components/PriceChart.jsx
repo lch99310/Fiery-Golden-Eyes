@@ -12,7 +12,13 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { formatPrice, formatShortDate } from '../utils/formatters'
-import { linearRegression } from '../utils/statistics'
+import { linearRegression, percentile } from '../utils/statistics'
+
+// Trim the extreme tails per property type so a single $23M sale doesn't
+// flatten the whole chart. Only applied when a type has enough points for
+// percentiles to be meaningful; stats in the panel above stay untrimmed.
+const TRIM_PCT = 2.5 // % cut from EACH end, per type
+const TRIM_MIN_POINTS = 40
 
 const TYPE_COLORS = {
   House: '#4f6ef7',
@@ -84,9 +90,8 @@ export default function PriceChart({ properties, filters }) {
     const sorted = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date))
     const minDate = new Date(sorted[0].date).getTime()
     const maxDate = new Date(sorted[sorted.length - 1].date).getTime()
-    const range = maxDate - minDate || 1
 
-    const points = sorted.map(p => ({
+    let points = sorted.map(p => ({
       ...p,
       xNum: (new Date(p.date).getTime() - minDate) / (1000 * 60 * 60 * 24), // days
       timestamp: new Date(p.date).getTime(),
@@ -94,6 +99,31 @@ export default function PriceChart({ properties, filters }) {
     }))
 
     const getValue = (p) => unitPrice ? p.pricePerSqm : p.price
+
+    // Trim extreme tails within each type (Unit vs Unit, House vs House…)
+    let trimmedCount = 0
+    const byType = {}
+    points.forEach(p => {
+      if (getValue(p) == null) return
+      if (!byType[p.type]) byType[p.type] = []
+      byType[p.type].push(p)
+    })
+    const kept = []
+    Object.values(byType).forEach(typePoints => {
+      if (typePoints.length < TRIM_MIN_POINTS) {
+        kept.push(...typePoints)
+        return
+      }
+      const values = typePoints.map(getValue)
+      const lo = percentile(values, TRIM_PCT)
+      const hi = percentile(values, 100 - TRIM_PCT)
+      typePoints.forEach(p => {
+        const v = getValue(p)
+        if (v >= lo && v <= hi) kept.push(p)
+        else trimmedCount++
+      })
+    })
+    points = kept.sort((a, b) => a.timestamp - b.timestamp)
 
     // Trend line per visible type
     const trendLines = {}
@@ -121,6 +151,7 @@ export default function PriceChart({ properties, filters }) {
       trendLines,
       ticks,
       minDate,
+      trimmedCount,
       dateFormatter: (dayNum) => {
         const d = new Date(minDate + dayNum * 24 * 60 * 60 * 1000)
         return d.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
@@ -256,6 +287,13 @@ export default function PriceChart({ properties, filters }) {
           <span className="chart-legend-dashed" style={{ borderColor: '#9aa0b8' }} />
           <span style={{ color: '#555' }}>Trend</span>
         </div>
+        {chartData.trimmedCount > 0 && (
+          <div className="chart-legend-item" title={`The most extreme ${TRIM_PCT}% at each end of every type are hidden so the trend stays readable. Panel stats above still include them.`}>
+            <span style={{ color: '#555' }}>
+              {chartData.trimmedCount} outlier{chartData.trimmedCount !== 1 ? 's' : ''} hidden (top/bottom {TRIM_PCT}% per type)
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

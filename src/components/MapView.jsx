@@ -21,6 +21,15 @@ const TYPE_COLORS = {
   Commercial: '#f87171',
 }
 
+// Extract the street name from an address like "507/6 Devlin St" → "DEVLIN ST".
+// The leading token is the unit/street number; keep the rest.
+export function streetOf(address) {
+  if (!address) return 'UNKNOWN'
+  const parts = address.trim().split(/\s+/)
+  if (parts.length > 1 && /\d/.test(parts[0])) parts.shift()
+  return parts.join(' ').toUpperCase() || 'UNKNOWN'
+}
+
 // Color scale: green (low) → yellow → red (high)
 function priceToColor(price, min, max) {
   if (!price || min === max) return '#4f6ef7'
@@ -72,9 +81,11 @@ function MapController({ selectedSuburb, suburbCentroids, onZoomChange, onBounds
   })
 
   useEffect(() => {
-    if (selectedSuburb && suburbCentroids[selectedSuburb]) {
+    // Recenter on the suburb only when zoomed out — when the user is already
+    // at street level, jumping to the suburb centroid is disorienting.
+    if (selectedSuburb && suburbCentroids[selectedSuburb] && map.getZoom() < 14) {
       const [lat, lng] = suburbCentroids[selectedSuburb]
-      map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true })
+      map.setView([lat, lng], Math.max(map.getZoom(), 13), { animate: true })
     }
   }, [selectedSuburb, suburbCentroids, map])
 
@@ -394,8 +405,49 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
     })
   }
 
-  // Show property markers when zoomed in enough (zoom >= 14)
-  const showPropertyMarkers = zoomLevel >= 14
+  // Zoom bands: suburb circles < 14, street circles 14–15, individual >= 16
+  const showStreetClusters = zoomLevel >= 14 && zoomLevel < 16
+  const showPropertyMarkers = zoomLevel >= 16
+
+  // Group filtered properties by (suburb, street) for the mid-zoom band.
+  const streetClusters = useMemo(() => {
+    if (!showStreetClusters) return []
+    const groups = {}
+    filteredProperties.forEach(p => {
+      if (!p.lat || !p.lng) return
+      const key = `${p.suburb.toUpperCase()}|${streetOf(p.address)}`
+      if (!groups[key]) groups[key] = { suburb: p.suburb.toUpperCase(), street: streetOf(p.address), lats: [], lngs: [], prices: [] }
+      groups[key].lats.push(p.lat)
+      groups[key].lngs.push(p.lng)
+      groups[key].prices.push(p.price)
+    })
+    return Object.values(groups).map(g => {
+      const sorted = [...g.prices].sort((a, b) => a - b)
+      const mid = Math.floor(sorted.length / 2)
+      const med = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+      return {
+        suburb: g.suburb,
+        street: g.street,
+        lat: g.lats.reduce((a, b) => a + b, 0) / g.lats.length,
+        lng: g.lngs.reduce((a, b) => a + b, 0) / g.lngs.length,
+        count: g.prices.length,
+        median: med,
+      }
+    })
+  }, [showStreetClusters, filteredProperties])
+
+  // Street circles inside the current viewport, capped for performance.
+  const visibleStreetClusters = useMemo(() => {
+    if (!showStreetClusters || !mapBounds) return []
+    const out = []
+    for (let i = 0; i < streetClusters.length; i++) {
+      const c = streetClusters[i]
+      if (!mapBounds.contains([c.lat, c.lng])) continue
+      out.push(c)
+      if (out.length >= 600) break
+    }
+    return out
+  }, [showStreetClusters, mapBounds, streetClusters])
 
   // Only the markers inside the current viewport, capped at MAX_MARKERS.
   const visibleMarkers = useMemo(() => {
@@ -476,8 +528,8 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           />
         )}
 
-        {/* Suburb cluster dots — hide when individual property markers are visible */}
-        {!showPropertyMarkers && displayClusters.map(cluster => {
+        {/* Suburb cluster dots — hide when street/property layers are visible */}
+        {!showStreetClusters && !showPropertyMarkers && displayClusters.map(cluster => {
           const countRadius = Math.max(5, Math.min(16, 3 + Math.sqrt(cluster.count) * 1.2))
           const zoomScale = zoomLevel <= 12 ? 1 : Math.max(0.4, 1 - (zoomLevel - 12) * 0.15)
           const radius = Math.round(countRadius * zoomScale)
@@ -512,6 +564,35 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
                   <strong>{cluster.name}</strong>
                   <div>Median: {formatPrice(cluster.median)}</div>
                   <div>{cluster.count} sale{cluster.count !== 1 ? 's' : ''}</div>
+                </div>
+              </Tooltip>
+            </CircleMarker>
+          )
+        })}
+
+        {/* Street-level circles (zoom 14–15): every street with sales is clickable */}
+        {showStreetClusters && visibleStreetClusters.map(c => {
+          const radius = Math.max(5, Math.min(14, 4 + Math.sqrt(c.count) * 1.4))
+          return (
+            <CircleMarker
+              key={`street-${c.suburb}-${c.street}`}
+              center={[c.lat, c.lng]}
+              radius={radius}
+              fillColor={priceToColor(c.median, minPrice, maxPrice)}
+              fillOpacity={0.65}
+              color="rgba(255,255,255,0.45)"
+              weight={1}
+              pane="markerPane"
+              eventHandlers={{
+                click: () => onSuburbSelect(c.suburb, c.street),
+              }}
+            >
+              <Tooltip className="custom-tooltip" offset={[10, 0]}>
+                <div className="map-tooltip">
+                  <strong>{c.street}</strong>
+                  <div>{c.suburb}</div>
+                  <div>Median: {formatPrice(c.median)}</div>
+                  <div>{c.count} sale{c.count !== 1 ? 's' : ''}</div>
                 </div>
               </Tooltip>
             </CircleMarker>
@@ -566,10 +647,15 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
         <SearchFlyTo />
       </MapContainer>
 
-      {/* Zoom hint when not zoomed in enough */}
-      {!showPropertyMarkers && (
+      {/* Zoom hints per layer band */}
+      {!showStreetClusters && !showPropertyMarkers && (
         <div className="zoom-hint">
-          Zoom in to see individual properties
+          Zoom in for street-level stats
+        </div>
+      )}
+      {showStreetClusters && (
+        <div className="zoom-hint">
+          Click a street circle for stats · zoom in for individual sales
         </div>
       )}
       {showPropertyMarkers && visibleMarkers.length >= MAX_MARKERS && (
