@@ -25,7 +25,10 @@ LEGACY_TOKEN="$HOME/.config/fiery-golden-eyes/token"
 PLIST="$HOME/Library/LaunchAgents/com.fiery-golden-eyes.autoupload.plist"
 OLD_PLIST="$HOME/Library/LaunchAgents/com.fiery-golden-eyes.weekly.plist"
 LOG="$HOME/Library/Logs/fiery-golden-eyes.log"
-RAW="https://raw.githubusercontent.com/lch99310/Fiery-Golden-Eyes/main/scripts"
+# Which branch to pull auto_upload.py from (default main). Set FGE_BRANCH to
+# test an un-merged branch end-to-end.
+BRANCH="${FGE_BRANCH:-main}"
+RAW="https://raw.githubusercontent.com/lch99310/Fiery-Golden-Eyes/$BRANCH/scripts"
 
 echo "== Fiery-Golden-Eyes 每週自動更新：一次性設定 =="
 mkdir -p "$APP_DIR" "$CONF_DIR" "$HOME/Library/LaunchAgents" "$(dirname "$LOG")"
