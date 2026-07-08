@@ -405,9 +405,12 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
     })
   }
 
-  // Zoom bands: suburb circles < 14, street circles 14–16, individual >= 17
+  // Zoom bands: suburb circles < 14, street circles 14–16, individual
+  // sales fade in at 16 (overlapping the street layer for a smooth
+  // handoff) and stand alone from 17.
   const showStreetClusters = zoomLevel >= 14 && zoomLevel < 17
-  const showPropertyMarkers = zoomLevel >= 17
+  const showPropertyMarkers = zoomLevel >= 16
+  const markerRadius = zoomLevel >= 17 ? 6 : 4
 
   // Group filtered properties by (suburb, street) for the mid-zoom band.
   const streetClusters = useMemo(() => {
@@ -579,7 +582,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
               center={[c.lat, c.lng]}
               radius={radius}
               fillColor={priceToColor(c.median, minPrice, maxPrice)}
-              fillOpacity={0.65}
+              fillOpacity={showPropertyMarkers ? 0.3 : 0.65}
               color="rgba(255,255,255,0.45)"
               weight={1}
               pane="markerPane"
@@ -605,7 +608,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
             <CircleMarker
               key={p.id}
               center={[p.lat, p.lng]}
-              radius={6}
+              radius={markerRadius}
               fillColor={TYPE_COLORS[p.type] || '#4f6ef7'}
               fillOpacity={0.8}
               stroke={true}
@@ -653,7 +656,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           Zoom in for street-level stats
         </div>
       )}
-      {showStreetClusters && (
+      {showStreetClusters && !showPropertyMarkers && (
         <div className="zoom-hint">
           Click a street circle for stats · zoom in for individual sales
         </div>

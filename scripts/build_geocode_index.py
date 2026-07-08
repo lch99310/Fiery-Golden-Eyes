@@ -97,6 +97,13 @@ def build_index(zip_path):
 
         with zf.open(member) as raw:
             reader = csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8"), delimiter="|")
+            required = {"STATE", "POSTCODE", "LATITUDE", "LONGITUDE",
+                        "NUMBER_FIRST", "STREET_NAME", "STREET_TYPE", "LOCALITY_NAME"}
+            missing = required - set(reader.fieldnames or [])
+            if missing:
+                sys.exit(f"G-NAF Core header is missing expected columns {sorted(missing)}.\n"
+                         f"Actual header: {reader.fieldnames}\n"
+                         f"The format may have changed — update build_geocode_index.py.")
             for row in reader:
                 if row.get("STATE") != "NSW":
                     continue
