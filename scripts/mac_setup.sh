@@ -39,16 +39,22 @@ fi
 echo "→ 安裝每週排程（每週二早上 10:00，電腦有開機時執行）…"
 
 # A root-owned plist or LaunchAgents dir (usually from a previous sudo run)
-# makes the write below fail with a cryptic "Permission denied".
+# blocks the launchd path. Fall back to a user crontab in that case —
+# crontab needs no elevated permissions at all.
 if { [ -e "$PLIST" ] && [ ! -w "$PLIST" ]; } || [ ! -w "$HOME/Library/LaunchAgents" ]; then
+  echo "   （launchd 排程檔權限不對，改用 cron——效果相同，不需要密碼）"
+  CRON_LINE="0 10 * * 2 /usr/bin/python3 \"$APP_DIR/auto_upload.py\" >> \"$LOG\" 2>&1  # fiery-golden-eyes"
+  ( crontab -l 2>/dev/null | grep -v 'fiery-golden-eyes' ; echo "$CRON_LINE" ) | crontab -
+  echo "   cron 排程已安裝（每週二 10:00）。"
+
   echo
-  echo "⚠️  排程檔或資料夾的權限不對（通常是之前用 sudo 執行過造成的）。"
-  echo "   請先執行這兩行修復，然後重新執行本設定指令："
+  echo "→ 立刻試跑一次…"
+  /usr/bin/python3 "$APP_DIR/auto_upload.py"
   echo
-  echo "   sudo rm -f \"$PLIST\""
-  echo "   sudo chown \"\$USER\" \"\$HOME/Library/LaunchAgents\""
-  echo
-  exit 1
+  echo "✅ 設定完成！之後每週二早上 10:00（電腦有開機且未休眠時）會自動更新。"
+  echo "   當週沒跑到也沒關係，下次執行會自動補上漏掉的週。"
+  echo "   執行紀錄：$LOG"
+  exit 0
 fi
 
 cat > "$PLIST" <<PLIST
