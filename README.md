@@ -34,6 +34,25 @@ All property sales data comes from the **NSW Valuer General - Property Sales Inf
 >
 > -- *NSW Valuer General, [valuergeneral.nsw.gov.au](https://www.valuergeneral.nsw.gov.au/)*
 
+### Updating the data (manual weekly upload)
+
+The NSW VG site blocks GitHub-hosted runners (403 Forbidden), so data cannot
+be fetched automatically from CI. Updates are done by hand-feeding the
+pipeline — no local tooling needed:
+
+1. Download the latest **Weekly Sales** ZIP from the
+   [VG bulk PSI page](https://valuation.property.nsw.gov.au/embed/propertySalesInformation)
+   (published every Monday).
+2. Upload it to the [`data-inbox/`](data-inbox/) folder on `main`
+   (GitHub web UI: *Add file → Upload files*).
+3. GitHub Actions parses the ZIP, merges the sales into
+   `public/data/properties.json`, deletes the processed file, and redeploys
+   the site automatically (~2–3 minutes).
+
+Yearly ZIPs (for historical backfill) work the same way. If an uploaded file
+contains no valid Sydney sales, the workflow fails loudly and nothing is
+published — the site only ever shows real parsed VG data.
+
 ### Important Notes
 
 - Property positions on the map are **approximate** (suburb centroid with small offset) -- not exact street addresses

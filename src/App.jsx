@@ -85,6 +85,13 @@ export default function App() {
             ⚠️ {error}
           </div>
         )}
+        {!loading && !error && properties.length === 0 && (
+          <div className="empty-banner">
+            No property data published yet — awaiting the first upload of real
+            NSW Valuer General sales data. Placeholder data has been removed
+            so that only genuine figures are ever shown.
+          </div>
+        )}
 
         {/* Map */}
         <div className={`map-wrapper ${selectedSuburb ? 'with-panel' : ''}`}>

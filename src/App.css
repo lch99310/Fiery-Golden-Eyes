@@ -174,3 +174,19 @@
   border-radius: 6px;
   font-size: 13px;
 }
+
+.empty-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  background: #1e2a4a;
+  border: 1px solid #4f6ef7;
+  color: #c7d2fe;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  max-width: 80%;
+  text-align: center;
+}
