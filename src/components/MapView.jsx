@@ -405,9 +405,9 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
     })
   }
 
-  // Zoom bands: suburb circles < 14, street circles 14–15, individual >= 16
-  const showStreetClusters = zoomLevel >= 14 && zoomLevel < 16
-  const showPropertyMarkers = zoomLevel >= 16
+  // Zoom bands: suburb circles < 14, street circles 14–16, individual >= 17
+  const showStreetClusters = zoomLevel >= 14 && zoomLevel < 17
+  const showPropertyMarkers = zoomLevel >= 17
 
   // Group filtered properties by (suburb, street) for the mid-zoom band.
   const streetClusters = useMemo(() => {
