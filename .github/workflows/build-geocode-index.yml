@@ -20,6 +20,15 @@ on:
         description: 'Optional direct URL to a G-NAF Core ZIP (leave empty to auto-discover)'
         required: false
         type: string
+  # Also run automatically when the geocoding code itself changes on main,
+  # so merging a pipeline update rebuilds coordinates without a manual click.
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-geocode-index.yml'
+      - 'scripts/build_geocode_index.py'
+      - 'scripts/geocode.py'
 
 permissions:
   contents: write
