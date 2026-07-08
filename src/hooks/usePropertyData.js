@@ -41,7 +41,14 @@ export function usePropertyData() {
 
         if (cancelled) return
 
-        setProperties(propsData.properties || [])
+        // Precompute a numeric timestamp per property once, so downstream
+        // date filters (which run on every filter/zoom change over the whole
+        // dataset) compare numbers instead of allocating a Date each time.
+        const props = propsData.properties || []
+        for (let i = 0; i < props.length; i++) {
+          props[i]._ts = Date.parse(props[i].date)
+        }
+        setProperties(props)
         setLastUpdated(propsData.lastUpdated || null)
         setDataNote(propsData.note || null)
         setSuburbs(suburbsData)

@@ -18,7 +18,7 @@ Run:
   python fetch_data.py --weekly     # incremental weekly update only
 
 Output:
-  ../public/data/properties.json   — processed sales data (last 3 years)
+  ../public/data/properties.json   — processed sales data (last 2 years)
   ../public/data/suburbs.geojson   — suburb boundary polygons (downloaded once)
 """
 
@@ -857,8 +857,11 @@ def main():
 
     random.seed(42)  # reproducible jitter
 
-    # We keep data from the last 3 years
-    cutoff = date.today() - timedelta(days=1095)
+    # We keep data from the last 2 years. Kept small on purpose: the app is
+    # for spotting price trends, and a shorter window keeps the published
+    # JSON (and the browser's workload) light. Change RETENTION_DAYS to widen.
+    RETENTION_DAYS = 730
+    cutoff = date.today() - timedelta(days=RETENTION_DAYS)
 
     all_properties = []
 
@@ -962,7 +965,7 @@ def main():
             seen[key] = p
     unique = list(seen.values())
 
-    # 4. Remove properties older than 3 years
+    # 4. Remove properties older than the retention window
     unique = [p for p in unique if p["date"] >= cutoff.isoformat()]
 
     # 5. Sort by date descending

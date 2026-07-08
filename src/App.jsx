@@ -33,12 +33,14 @@ export default function App() {
     if (!selectedSuburb || !properties.length) return []
     const cutoff = new Date()
     cutoff.setMonth(cutoff.getMonth() - filters.months)
+    const cutoffTs = cutoff.getTime()
+    const target = selectedSuburb.toUpperCase()
 
     return properties.filter(p => {
-      const matchSuburb = p.suburb.toUpperCase() === selectedSuburb.toUpperCase()
+      const matchSuburb = p.suburb.toUpperCase() === target
       const matchType = filters.types.includes(p.type)
       const matchPrice = p.price >= filters.minPrice && p.price <= filters.maxPrice
-      const matchDate = new Date(p.date) >= cutoff
+      const matchDate = p._ts >= cutoffTs
       return matchSuburb && matchType && matchPrice && matchDate
     })
   }, [selectedSuburb, properties, filters])
