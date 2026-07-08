@@ -24,10 +24,13 @@ export function usePropertyData() {
       setError(null)
 
       try {
-        // Load property sales JSON
+        // Load property sales JSON.
+        // cache: 'no-cache' forces revalidation with the server (ETag/304),
+        // so a freshly deployed dataset shows up immediately instead of the
+        // browser serving GitHub Pages' 10-minute-cached copy.
         const [propsRes, suburbsRes] = await Promise.all([
-          fetch(`${BASE}data/properties.json`),
-          fetch(`${BASE}data/suburbs.geojson`),
+          fetch(`${BASE}data/properties.json`, { cache: 'no-cache' }),
+          fetch(`${BASE}data/suburbs.geojson`, { cache: 'no-cache' }),
         ])
 
         if (!propsRes.ok) throw new Error(`Failed to load properties: ${propsRes.status}`)
@@ -38,7 +41,14 @@ export function usePropertyData() {
 
         if (cancelled) return
 
-        setProperties(propsData.properties || [])
+        // Precompute a numeric timestamp per property once, so downstream
+        // date filters (which run on every filter/zoom change over the whole
+        // dataset) compare numbers instead of allocating a Date each time.
+        const props = propsData.properties || []
+        for (let i = 0; i < props.length; i++) {
+          props[i]._ts = Date.parse(props[i].date)
+        }
+        setProperties(props)
         setLastUpdated(propsData.lastUpdated || null)
         setDataNote(propsData.note || null)
         setSuburbs(suburbsData)

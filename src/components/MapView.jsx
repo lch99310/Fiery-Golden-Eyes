@@ -40,7 +40,7 @@ function priceToColor(price, min, max) {
 }
 
 // Component to recenter map, track zoom level, and create custom panes
-function MapController({ selectedSuburb, suburbCentroids, onZoomChange, onSearchLocation }) {
+function MapController({ selectedSuburb, suburbCentroids, onZoomChange, onBoundsChange, onSearchLocation }) {
   const map = useMap()
 
   // Create custom panes for z-index control
@@ -55,9 +55,19 @@ function MapController({ selectedSuburb, suburbCentroids, onZoomChange, onSearch
     }
   }, [map])
 
+  // Report initial bounds once the map is ready
+  useEffect(() => {
+    onBoundsChange(map.getBounds())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map])
+
   useMapEvents({
     zoomend() {
       onZoomChange(map.getZoom())
+      onBoundsChange(map.getBounds())
+    },
+    moveend() {
+      onBoundsChange(map.getBounds())
     },
   })
 
@@ -178,15 +188,22 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
   const geoJsonRef = useRef(null)
   const mapContainerRef = useRef(null)
   const [zoomLevel, setZoomLevel] = useState(11)
+  const [mapBounds, setMapBounds] = useState(null)
+
+  // Max individual property markers drawn at once. Rendering every sale as a
+  // Leaflet layer freezes the browser with a large dataset, so when zoomed in
+  // we only draw markers inside the current viewport, capped at this many.
+  const MAX_MARKERS = 2000
 
   // Filter properties based on current filters
   const filteredProperties = useMemo(() => {
     const cutoff = new Date()
     cutoff.setMonth(cutoff.getMonth() - filters.months)
+    const cutoffTs = cutoff.getTime()
 
     return properties.filter(p => {
       if (!filters.types.includes(p.type)) return false
-      if (new Date(p.date) < cutoff) return false
+      if (p._ts < cutoffTs) return false
       if (p.price < filters.minPrice || p.price > filters.maxPrice) return false
       return true
     })
@@ -380,6 +397,20 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
   // Show property markers when zoomed in enough (zoom >= 14)
   const showPropertyMarkers = zoomLevel >= 14
 
+  // Only the markers inside the current viewport, capped at MAX_MARKERS.
+  const visibleMarkers = useMemo(() => {
+    if (!showPropertyMarkers || !mapBounds) return []
+    const out = []
+    for (let i = 0; i < filteredProperties.length; i++) {
+      const p = filteredProperties[i]
+      if (!p.lat || !p.lng) continue
+      if (!mapBounds.contains([p.lat, p.lng])) continue
+      out.push(p)
+      if (out.length >= MAX_MARKERS) break
+    }
+    return out
+  }, [showPropertyMarkers, mapBounds, filteredProperties])
+
   // Handle search result selection
   const handleSearchResult = useCallback((result) => {
     // Use global fly-to function set by SearchFlyTo component
@@ -487,10 +518,8 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           )
         })}
 
-        {/* Property markers - shown when zoomed in */}
-        {showPropertyMarkers && filteredProperties.map(p => {
-          if (!p.lat || !p.lng) return null
-
+        {/* Property markers - shown when zoomed in, limited to the viewport */}
+        {showPropertyMarkers && visibleMarkers.map(p => {
           return (
             <CircleMarker
               key={p.id}
@@ -529,6 +558,7 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
           selectedSuburb={selectedSuburb}
           suburbCentroids={suburbCentroids}
           onZoomChange={setZoomLevel}
+          onBoundsChange={setMapBounds}
           onSearchLocation={handleSearchResult}
         />
 
@@ -540,6 +570,11 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
       {!showPropertyMarkers && (
         <div className="zoom-hint">
           Zoom in to see individual properties
+        </div>
+      )}
+      {showPropertyMarkers && visibleMarkers.length >= MAX_MARKERS && (
+        <div className="zoom-hint">
+          Showing {MAX_MARKERS.toLocaleString()} sales in view — zoom in for more detail
         </div>
       )}
 
