@@ -67,6 +67,19 @@ only), schedules the updater for every Tuesday 10:00 via launchd, and
 catches up missed weeks automatically if the computer was off. Logs go to
 `~/Library/Logs/fiery-golden-eyes.log`.
 
+By default it looks back 6 Mondays. After a longer gap, backfill by hand with
+a bigger window:
+
+```bash
+python3 scripts/auto_upload.py --weeks 12
+```
+
+> **Note:** the `Update Property Data` workflow in Actions cannot fetch from
+> the VG site — every request from a GitHub runner returns 403 Forbidden, so
+> running it manually will always fail with
+> `No valid NSW VG sales data obtained`. That is the block, not missing data
+> on the VG side. Use the upload path above instead.
+
 ### Important Notes
 
 - Property positions on the map are **approximate** (suburb centroid with small offset) -- not exact street addresses

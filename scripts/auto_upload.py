@@ -16,6 +16,7 @@ parses the files and deploys the site automatically.
 Setup on macOS is automated by scripts/mac_setup.sh (see README).
 """
 
+import argparse
 import base64
 import json
 import sys
@@ -27,6 +28,8 @@ from zoneinfo import ZoneInfo
 
 REPO = "lch99310/Fiery-Golden-Eyes"
 VG_WEEKLY_URL = "https://www.valuergeneral.nsw.gov.au/_psi/weekly/{d}.zip"
+# How many recent Mondays to check by default. Override with --weeks N when
+# catching up after a longer outage (e.g. the uploader was off for months).
 CATCH_UP_WEEKS = 6
 
 # Primary config dir; the legacy ~/.config path is still read for tokens
@@ -128,7 +131,22 @@ def upload_to_inbox(token, dstr, blob):
     return False
 
 
+def parse_args():
+    ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
+    ap.add_argument(
+        "--weeks", type=int, default=CATCH_UP_WEEKS,
+        help=f"how many recent Mondays to check (default {CATCH_UP_WEEKS}); "
+             "raise it to backfill a longer gap",
+    )
+    ap.add_argument(
+        "--force", action="store_true",
+        help="re-upload weeks already recorded as uploaded",
+    )
+    return ap.parse_args()
+
+
 def main():
+    args = parse_args()
     token = read_token()
     if not token:
         sys.exit(f"No GitHub token found at {TOKEN_FILE} — run mac_setup.sh first.")
@@ -139,8 +157,8 @@ def main():
     done = set(state_file.read_text().split()) if state_file.exists() else set()
     uploaded = 0
 
-    for dstr in recent_mondays(CATCH_UP_WEEKS):
-        if dstr in done:
+    for dstr in recent_mondays(args.weeks):
+        if dstr in done and not args.force:
             continue
         log(f"Downloading VG weekly {dstr} …")
         try:
@@ -157,7 +175,7 @@ def main():
             done.add(dstr)
             uploaded += 1
             CONF_DIR.mkdir(parents=True, exist_ok=True)
-            STATE_FILE.write_text("\n".join(sorted(done)[-20:]) + "\n")
+            STATE_FILE.write_text("\n".join(sorted(done)[-52:]) + "\n")
             log(f"  ✅ {dstr} uploaded — the site will update itself in a few minutes")
 
     if uploaded == 0:
