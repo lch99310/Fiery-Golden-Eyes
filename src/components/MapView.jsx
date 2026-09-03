@@ -502,12 +502,23 @@ export default function MapView({ properties, suburbs, filters, selectedSuburb, 
         maxZoom={19}
         minZoom={10}
       >
-        {/* Dark tile layer */}
+        {/* Dark tile layer.
+            Esri's dark canvas is used instead of CARTO's: CARTO now requires an
+            API key and stamps unkeyed tiles with "API KEY REQUIRED". Esri serves
+            these tiles without a key, attribution only. Its native tiles stop at
+            z16, so Leaflet upscales beyond that (maxNativeZoom). */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          subdomains="abcd"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://www.esri.com/">Esri</a>'
           maxZoom={19}
+          maxNativeZoom={16}
+        />
+
+        {/* Place & street labels for the dark canvas (served as a separate layer) */}
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
+          maxNativeZoom={16}
         />
 
         {/* Rail/metro/light rail overlay — subtle so it doesn't distract */}
