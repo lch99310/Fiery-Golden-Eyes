@@ -409,10 +409,16 @@
   border-radius: 3px;
 }
 
-.chart-legend-dashed {
+.chart-legend-line {
   display: inline-block;
   width: 16px;
-  border-top: 2px dashed;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.chart-legend-trend {
+  color: var(--text-secondary);
+  font-size: 10px;
 }
 
 .trend-hint {
