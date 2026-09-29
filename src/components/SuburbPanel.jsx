@@ -173,7 +173,7 @@ export default function SuburbPanel({ suburb, street, properties, filters, onClo
           <div className="chart-section">
             <div className="section-heading">
               Price History
-              <span className="section-hint">Dashed lines = trend</span>
+              <span className="section-hint">Line = median trend</span>
             </div>
             <PriceChart properties={properties} filters={filters} />
           </div>
