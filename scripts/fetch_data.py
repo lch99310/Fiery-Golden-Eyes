@@ -18,7 +18,7 @@ Run:
   python fetch_data.py --weekly     # incremental weekly update only
 
 Output:
-  ../public/data/properties.json   — processed sales data (last 2 years)
+  ../public/data/properties.json   — processed sales data (last 3 years)
   ../public/data/suburbs.geojson   — suburb boundary polygons (downloaded once)
 """
 
@@ -898,10 +898,13 @@ def main():
 
     random.seed(42)  # reproducible jitter
 
-    # We keep data from the last 2 years. Kept small on purpose: the app is
-    # for spotting price trends, and a shorter window keeps the published
-    # JSON (and the browser's workload) light. Change RETENTION_DAYS to widen.
-    RETENTION_DAYS = 730
+    # We keep data from the last 3 years. No historical backfill is required:
+    # older sales are simply no longer dropped, so the window fills in week by
+    # week as new PSI files are uploaded (full 3 years around Nov 2027).
+    # Yearly ZIPs can still be uploaded to backfill sooner. At ~110k sales a
+    # year the published JSON stays well under GitHub's 100 MB file limit;
+    # going much beyond 3 years would need the file split or slimmed first.
+    RETENTION_DAYS = 1095
     cutoff = date.today() - timedelta(days=RETENTION_DAYS)
 
     all_properties = []
